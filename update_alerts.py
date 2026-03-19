@@ -69,25 +69,23 @@ STREAK_CHECKS = {
     "tpm3":("3+ 3PM",lambda p,r,a,s,b,t:t>=3),"tpm5":("5+ 3PM",lambda p,r,a,s,b,t:t>=5),
 }
 
-COMPOUND_LABELS = {
-    "pts30_ast10":"30+ PTS & 10+ AST","pts30_reb10":"30+ PTS & 10+ REB",
-    "pts35_ast10":"35+ PTS & 10+ AST","pts40_reb10":"40+ PTS & 10+ REB",
-    "pts20_reb10_ast10":"20-10-10","pts25_reb10_ast10":"25-10-10",
-    "reb20":"20+ REB","ast15":"15+ AST","stl5":"5+ STL","blk5":"5+ BLK",
-    "pts50":"50+ PTS","pts60":"60+ PTS","5x5":"5x5",
-}
-COMPOUND_CHECKS = {
-    "pts30_ast10":lambda p,r,a,s,b,t:p>=30 and a>=10,
-    "pts30_reb10":lambda p,r,a,s,b,t:p>=30 and r>=10,
-    "pts35_ast10":lambda p,r,a,s,b,t:p>=35 and a>=10,
-    "pts40_reb10":lambda p,r,a,s,b,t:p>=40 and r>=10,
-    "pts20_reb10_ast10":lambda p,r,a,s,b,t:p>=20 and r>=10 and a>=10,
-    "pts25_reb10_ast10":lambda p,r,a,s,b,t:p>=25 and r>=10 and a>=10,
-    "reb20":lambda p,r,a,s,b,t:r>=20,"ast15":lambda p,r,a,s,b,t:a>=15,
-    "stl5":lambda p,r,a,s,b,t:s>=5,"blk5":lambda p,r,a,s,b,t:b>=5,
-    "pts50":lambda p,r,a,s,b,t:p>=50,"pts60":lambda p,r,a,s,b,t:p>=60,
-    "5x5":lambda p,r,a,s,b,t:all(v>=5 for v in [p,r,a,s,b]),
-}
+COMPOUND_LABELS = {"pts25_reb10": "25+ PTS & 10+ REB", "pts30_reb10": "30+ PTS & 10+ REB", "pts30_reb15": "30+ PTS & 15+ REB", "pts40_reb10": "40+ PTS & 10+ REB", "pts40_reb15": "40+ PTS & 15+ REB", "pts25_ast10": "25+ PTS & 10+ AST", "pts30_ast10": "30+ PTS & 10+ AST", "pts30_ast15": "30+ PTS & 15+ AST", "pts35_ast10": "35+ PTS & 10+ AST", "pts40_ast10": "40+ PTS & 10+ AST", "pts20_blk5": "20+ PTS & 5+ BLK", "pts25_blk5": "25+ PTS & 5+ BLK", "pts30_blk5": "30+ PTS & 5+ BLK", "pts20_stl5": "20+ PTS & 5+ STL", "pts25_stl5": "25+ PTS & 5+ STL", "pts30_stl5": "30+ PTS & 5+ STL", "pts30_tpm5": "30+ PTS & 5+ 3PM", "pts30_tpm8": "30+ PTS & 8+ 3PM", "pts40_tpm5": "40+ PTS & 5+ 3PM", "ast10_reb10": "10+ AST & 10+ REB", "ast15_reb10": "15+ AST & 10+ REB", "ast10_blk3": "10+ AST & 3+ BLK", "ast10_blk5": "10+ AST & 5+ BLK", "ast10_stl3": "10+ AST & 3+ STL", "ast10_stl5": "10+ AST & 5+ STL", "reb15_blk3": "15+ REB & 3+ BLK", "reb15_blk5": "15+ REB & 5+ BLK", "reb10_blk5": "10+ REB & 5+ BLK", "reb15_stl3": "15+ REB & 3+ STL", "stl3_blk3": "3+ STL & 3+ BLK", "stl5_blk3": "5+ STL & 3+ BLK", "pts20_reb10_ast10": "20-10-10", "pts25_reb10_ast10": "25-10-10", "pts30_reb10_ast10": "30-10-10", "pts30_reb10_ast5": "30+ PTS, 10+ REB & 5+ AST", "pts20_reb10_blk3": "20+ PTS, 10+ REB & 3+ BLK", "pts20_ast10_stl3": "20+ PTS, 10+ AST & 3+ STL", "pts20_reb5_ast5_stl3": "20+ PTS, 5+ REB, 5+ AST & 3+ STL", "pts20_reb5_ast5_blk3": "20+ PTS, 5+ REB, 5+ AST & 3+ BLK", "pts50": "50+ PTS", "pts60": "60+ PTS", "reb20": "20+ REB", "ast15": "15+ AST", "ast20": "20+ AST", "stl5": "5+ STL", "stl7": "7+ STL", "blk5": "5+ BLK", "blk7": "7+ BLK", "tpm8": "8+ 3PM", "tpm10": "10+ 3PM", "5x5": "5x5", "tpm5_ast10": "5+ 3PM & 10+ AST", "tpm5_reb10": "5+ 3PM & 10+ REB", "tpm5_stl3": "5+ 3PM & 3+ STL", "tpm5_blk3": "5+ 3PM & 3+ BLK", "tpm8_ast5": "8+ 3PM & 5+ AST", "tpm8_reb5": "8+ 3PM & 5+ REB", "tpm3_ast10": "3+ 3PM & 10+ AST", "tpm3_stl3": "3+ 3PM & 3+ STL", "tpm3_blk3": "3+ 3PM & 3+ BLK", "pts45_reb10": "45+ PTS & 10+ REB", "pts45_ast10": "45+ PTS & 10+ AST", "pts45_tpm5": "45+ PTS & 5+ 3PM", "pts35_reb10": "35+ PTS & 10+ REB", "pts35_reb15": "35+ PTS & 15+ REB", "pts35_blk3": "35+ PTS & 3+ BLK", "pts35_stl3": "35+ PTS & 3+ STL", "pts35_tpm5": "35+ PTS & 5+ 3PM", "pts15_blk3": "15+ PTS & 3+ BLK", "pts15_blk5": "15+ PTS & 5+ BLK", "pts15_stl3": "15+ PTS & 3+ STL", "pts15_stl5": "15+ PTS & 5+ STL", "pts15_tpm5": "15+ PTS & 5+ 3PM", "ast5_blk3": "5+ AST & 3+ BLK", "ast5_blk5": "5+ AST & 5+ BLK", "ast5_stl3": "5+ AST & 3+ STL", "ast5_stl5": "5+ AST & 5+ STL", "ast10_blk2": "10+ AST & 2+ BLK", "ast10_stl2": "10+ AST & 2+ STL", "reb10_blk3": "10+ REB & 3+ BLK", "reb10_stl3": "10+ REB & 3+ STL", "reb10_ast5": "10+ REB & 5+ AST", "reb10_tpm3": "10+ REB & 3+ 3PM", "stl2_blk2": "2+ STL & 2+ BLK", "stl2_blk3": "2+ STL & 3+ BLK", "stl3_blk2": "3+ STL & 2+ BLK", "stl4_blk2": "4+ STL & 2+ BLK", "stl2_blk4": "2+ STL & 4+ BLK", "pts25_ast5_stl3": "25+ PTS, 5+ AST & 3+ STL", "pts25_ast5_blk3": "25+ PTS, 5+ AST & 3+ BLK", "pts30_ast5_stl3": "30+ PTS, 5+ AST & 3+ STL", "pts30_ast5_blk3": "30+ PTS, 5+ AST & 3+ BLK", "pts20_reb5_stl3": "20+ PTS, 5+ REB & 3+ STL", "pts20_reb5_blk3": "20+ PTS, 5+ REB & 3+ BLK", "pts15_reb10_blk3": "15+ PTS, 10+ REB & 3+ BLK", "pts15_reb10_ast5": "15+ PTS, 10+ REB & 5+ AST", "pts15_ast10_stl3": "15+ PTS, 10+ AST & 3+ STL", "reb10_ast5_blk3": "10+ REB, 5+ AST & 3+ BLK", "reb10_ast5_stl3": "10+ REB, 5+ AST & 3+ STL", "ast5_stl3_blk3": "5+ AST, 3+ STL & 3+ BLK", "pts20_reb10_ast5_stl2": "20+ PTS, 10+ REB, 5+ AST & 2+ STL", "pts20_reb10_ast5_blk2": "20+ PTS, 10+ REB, 5+ AST & 2+ BLK", "pts20_reb5_ast5_stl2_blk2": "20+ PTS, 5+ REB, 5+ AST, 2+ STL & 2+ BLK", "pts15_reb10_ast5_blk3": "15+ PTS, 10+ REB, 5+ AST & 3+ BLK", "pts15_reb5_ast5_stl3_blk3": "15+ PTS, 5+ REB, 5+ AST, 3+ STL & 3+ BLK"}
+
+def _build_check(key):
+    parts=key.split("_");conditions=[];i=0
+    while i<len(parts):
+        if parts[i]=="5x5": return lambda p,r,a,s,b,t:all(v>=5 for v in [p,r,a,s,b])
+        stat=parts[i];val=int(parts[i+1]) if i+1<len(parts) and parts[i+1].isdigit() else None
+        if val is None:
+            for px in ["pts","reb","ast","stl","blk","tpm"]:
+                if stat.startswith(px): val=int(stat[len(px):]); stat=px; break
+            i+=1
+        else: i+=2
+        m={"pts":"p","reb":"r","ast":"a","stl":"s","blk":"b","tpm":"t"}
+        if stat in m: conditions.append((m[stat],val))
+    return lambda p,r,a,s,b,t,c=conditions:all({"p":p,"r":r,"a":a,"s":s,"b":b,"t":t}[x[0]]>=x[1] for x in c)
+
+COMPOUND_CHECKS = {k: _build_check(k) for k in COMPOUND_LABELS}
 AGE_FEATS = {
     "pts40":("40+ PTS",lambda p,r,a,s,b,t:p>=40),
     "pts50":("50+ PTS",lambda p,r,a,s,b,t:p>=50),
