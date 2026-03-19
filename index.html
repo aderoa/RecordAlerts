@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Record Alerts</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+::-webkit-scrollbar{height:6px;width:6px}::-webkit-scrollbar-track{background:#0d0d12}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+body{background:#0d0d12;color:#e0e0e0;font-family:'JetBrains Mono',monospace;min-height:100vh}
+#loadScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.logo-main{font-family:'Oswald',sans-serif;font-size:42px;font-weight:700;letter-spacing:6px;text-transform:uppercase;line-height:1.1;background:linear-gradient(135deg,#ff4444 0%,#ffaa00 50%,#ff4444 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%,100%{background-position:0% center}50%{background-position:200% center}}
+.subtitle{font-size:12px;color:#555;letter-spacing:3px;text-transform:uppercase;margin:8px 0 40px;font-family:'Oswald',sans-serif}
+#progressText{font-size:11px;color:#555;margin-top:8px}
+#app{display:none;padding:20px 16px;max-width:960px;margin:0 auto}
+.header{text-align:center;margin-bottom:20px}
+.logo-sm{font-family:'Oswald',sans-serif;font-size:24px;font-weight:700;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(90deg,#ff4444,#ffaa00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.db-info{font-size:10px;color:#555;letter-spacing:2px;margin-top:2px}
+.admin{font-size:10px;margin-top:4px}
+.admin a{color:#444;text-decoration:none}.admin a:hover{color:#ffaa00}
+/* TABS */
+.tabs{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:20px}
+.tab{padding:8px 16px;border-radius:6px;border:2px solid #222;cursor:pointer;font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;transition:all 0.15s;background:transparent;color:#666}
+.tab:hover{border-color:#444;color:#aaa}
+.tab.on{background:#ff4444;border-color:#ff4444;color:#fff}
+.sec{display:none}.sec.on{display:block}
+/* DATE NAV */
+.date-area{text-align:center;margin-bottom:20px}
+.di{padding:10px 16px;border-radius:6px;background:#1a1a22;color:#e0e0e0;font-size:15px;font-family:'JetBrains Mono',monospace;outline:none;border:2px solid #333;cursor:pointer}
+.di:focus{border-color:#ff4444}
+.dnav{display:flex;justify-content:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.nb{padding:6px 14px;border-radius:14px;border:1px solid #333;background:transparent;color:#888;font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+.nb:hover{border-color:#ff4444;color:#ff4444}
+/* FILTERS */
+.fr{display:flex;justify-content:center;gap:5px;margin-bottom:16px;flex-wrap:wrap}
+.fb{padding:5px 10px;border-radius:12px;border:1px solid #333;background:transparent;color:#666;font-size:9px;font-weight:600;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+.fb:hover{border-color:#ffaa00;color:#ffaa00}.fb.on{background:#ffaa00;border-color:#ffaa00;color:#000}
+/* BANNER */
+.ban{text-align:center;margin-bottom:20px;padding:16px 20px;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-radius:10px;border:1px solid #222}
+.ban .bd{font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:2px;text-transform:uppercase}
+.ban .bc{font-size:11px;color:#888;margin-top:4px;letter-spacing:1px}
+/* ALERT CARDS */
+.al{display:flex;flex-direction:column;gap:12px}
+.ac{padding:16px 20px;border-radius:10px;border:1px solid #222;background:#12121a;transition:all 0.15s;display:flex;align-items:flex-start;gap:16px}
+.ac:hover{border-color:#333;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.ac.type-record{border-left:4px solid #ff4444}
+.ac.type-streak_record{border-left:4px solid #ffaa00}
+.ac.type-streak_extend{border-left:4px solid #ff8800}
+.ac.type-first_ever{border-left:4px solid #00cc88}
+.ac .ico{font-size:28px;flex-shrink:0;margin-top:2px}
+.ac .bod{flex:1;min-width:0}
+.ac .alert-text{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#fff;line-height:1.4;letter-spacing:0.3px}
+.ac .det{font-size:11px;color:#666;margin-top:6px;line-height:1.5}
+.ac .det b{color:#ccc;font-weight:600}
+.ac .det .line{color:#555;font-style:italic}
+.ac .tg{display:inline-block;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-top:8px}
+.tg.tag-record{background:#ff444422;color:#ff4444}
+.tg.tag-streak_record{background:#ffaa0022;color:#ffaa00}
+.tg.tag-streak_extend{background:#ff880022;color:#ff8800}
+.tg.tag-first_ever{background:#00cc8822;color:#00cc88}
+/* ALL DATES LIST */
+.dr{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1a1a22;cursor:pointer;transition:background 0.1s}
+.dr:hover{background:#1a1a22}
+.dr .dd{font-weight:600;color:#ccc;font-size:12px;min-width:90px}
+.dr .dp{font-size:10px;color:#555;flex:1;margin:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .dc{font-size:12px;color:#ffaa00;font-weight:700;min-width:30px;text-align:right;font-family:'Oswald',sans-serif}
+/* SEARCH */
+.si{width:100%;padding:12px 16px;border-radius:6px;background:#1a1a22;color:#e0e0e0;font-size:14px;font-family:'JetBrains Mono',monospace;outline:none;border:2px solid #333}
+.si:focus{border-color:#ff4444}
+.empty{text-align:center;padding:60px 20px;color:#333;font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:2px}
+.empty .icon{font-size:48px;margin-bottom:16px;opacity:0.4}
+@media(max-width:600px){.logo-main{font-size:28px}.tab{padding:6px 10px;font-size:10px}.ac{flex-direction:column;gap:8px}.ac .alert-text{font-size:13px}}
+</style>
+</head>
+<body>
+<div id="loadScreen">
+  <div class="logo-main">RECORD<br>ALERTS</div>
+  <div class="subtitle">NBA Records by Country · College · State · Position</div>
+  <div id="progressText">Loading...</div>
+</div>
+<div id="app">
+  <div class="header">
+    <div class="logo-sm">NBA RECORD ALERTS</div>
+    <div class="db-info" id="dbInfo"></div>
+    <div class="admin"><a href="https://github.com/aderoa/RecordAlerts/actions/workflows/update-alerts.yml" target="_blank">⚙️ Run Update</a></div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="sv('daily')">🚨 Latest</button>
+    <button class="tab" onclick="sv('alldates')">📋 All Dates</button>
+    <button class="tab" onclick="sv('search')">🔍 Search</button>
+  </div>
+  <div class="sec on" id="sec-daily">
+    <div class="date-area"><input type="date" class="di" id="dI">
+      <div class="dnav">
+        <button class="nb" onclick="sd(-1)">← Day Before</button>
+        <button class="nb" onclick="st()">Today</button>
+        <button class="nb" onclick="sd(1)">Day After →</button>
+      </div>
+    </div>
+    <div class="fr" id="fD"></div>
+    <div id="dC"></div>
+  </div>
+  <div class="sec" id="sec-alldates">
+    <div class="fr" id="fA"></div>
+    <div id="aC"></div>
+  </div>
+  <div class="sec" id="sec-search">
+    <div style="max-width:500px;margin:0 auto 20px"><input class="si" id="sI" type="text" placeholder="Search player, team, college, country..." autocomplete="off"></div>
+    <div class="fr" id="fS"></div>
+    <div id="sC"></div>
+  </div>
+</div>
+<script>
+const APP_VERSION="2026.03.18a";
+const CACHE_BUST=Date.now();
+let AL={},allDates=[],flat=[],cF="all";
+const TYPE_ICONS={record:"🏆",streak_record:"🔥",streak_extend:"📈",first_ever:"⭐"};
+const TYPE_LABELS={record:"Record",streak_record:"Streak Record",streak_extend:"Streak",first_ever:"First Ever"};
+const FTYPES=["all","record","streak_record","first_ever"];
+
+(async function(){
+  const t=document.getElementById("progressText");
+  try{
+    t.textContent="Loading alerts...";
+    const r=await fetch("alerts.json?v="+CACHE_BUST);
+    if(r.ok) AL=await r.json();
+    allDates=Object.keys(AL).sort().reverse();
+    flat=[];for(const d in AL)for(const a of AL[d])flat.push({...a,date:d});
+    t.textContent="Done!";
+    setTimeout(()=>{
+      document.getElementById("loadScreen").style.display="none";
+      document.getElementById("app").style.display="block";
+      const total=Object.values(AL).reduce((s,d)=>s+d.length,0);
+      document.getElementById("dbInfo").textContent="v"+APP_VERSION+" · "+allDates.length+" DATES · "+total+" ALERTS · 2025-26";
+      if(allDates.length)document.getElementById("dI").value=allDates[0];
+      bF("fD");bF("fA");bF("fS");rD();
+    },200);
+  }catch(e){t.textContent="Error: "+e.message}
+})();
+
+function sv(v){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
+  document.querySelectorAll(".tab").forEach(t=>{const m={daily:"🚨",alldates:"📋",search:"🔍"};if(t.textContent.includes(m[v]))t.classList.add("on")});
+  document.querySelectorAll(".sec").forEach(s=>s.classList.remove("on"));
+  document.getElementById("sec-"+v).classList.add("on");
+  if(v==="daily")rD();if(v==="alldates")rA();if(v==="search"){document.getElementById("sI").focus();rS()}
+}
+
+function bF(id){document.getElementById(id).innerHTML=FTYPES.map(t=>'<button class="fb'+(t===cF?" on":"")+'" onclick="sF(\''+t+'\')">'+(t==="all"?"All":(TYPE_ICONS[t]||"")+" "+(TYPE_LABELS[t]||t))+'</button>').join("")}
+function sF(t){cF=t;bF("fD");bF("fA");bF("fS");rD();rA();rS()}
+
+const dI=document.getElementById("dI");dI.addEventListener("change",rD);
+function st(){const d=new Date();dI.value=d.toISOString().slice(0,10);rD()}
+function sd(delta){if(!dI.value)return;const c=dI.value;const i=allDates.indexOf(c);
+  if(delta>0){const n=i>0?allDates[i-1]:null;if(n)dI.value=n}
+  else{const n=i>=0&&i<allDates.length-1?allDates[i+1]:null;if(n)dI.value=n}
+  rD()}
+
+function card(a,extraDate){
+  const ico=TYPE_ICONS[a.type]||"📌";
+  const tl=TYPE_LABELS[a.type]||a.type;
+  let dt=extraDate?' · <span style="color:#ffaa00">'+new Date(extraDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+'</span>':"";
+  return'<div class="ac type-'+a.type+'"'+(extraDate?' style="cursor:pointer" onclick="dI.value=\''+extraDate+'\';sv(\'daily\')"':'')+'><div class="ico">'+ico+'</div><div class="bod"><div class="alert-text">'+a.alert+'</div><div class="det"><b>'+a.player+'</b> ('+a.team+' vs '+a.opp+') — <span class="line">'+a.line+'</span>'+dt+'</div><span class="tg tag-'+a.type+'">'+tl+'</span></div></div>';
+}
+
+function rD(){
+  const v=dI.value;const als=AL[v]||[];const f=cF==="all"?als:als.filter(a=>a.type===cF);
+  const el=document.getElementById("dC");
+  if(!v){el.innerHTML='<div class="empty"><div class="icon">🚨</div>Pick a date</div>';return}
+  const fd=new Date(v+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  if(!f.length){el.innerHTML='<div class="ban"><div class="bd">'+fd+'</div><div class="bc">'+(als.length?als.length+' alerts (none matching filter)':'No record alerts on this date')+'</div></div>';return}
+  let h='<div class="ban"><div class="bd">'+fd+'</div><div class="bc">'+f.length+(f.length!==als.length?' of '+als.length:'')+' alert'+(f.length!==1?'s':'')+'</div></div><div class="al">';
+  f.forEach(a=>{h+=card(a)});el.innerHTML=h+'</div>';
+}
+
+function rA(){
+  const el=document.getElementById("aC");
+  const fd=cF==="all"?allDates:allDates.filter(d=>AL[d].some(a=>a.type===cF));
+  const total=Object.values(AL).reduce((s,d)=>s+d.length,0);
+  let h='<div class="ban"><div class="bd">ALL DATES WITH RECORDS</div><div class="bc">'+allDates.length+' dates · '+total+' alerts</div></div>';
+  fd.forEach(d=>{
+    const als=AL[d];const fl=cF==="all"?als:als.filter(a=>a.type===cF);if(!fl.length)return;
+    const fn=new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+    const preview=fl[0]?fl[0].player+": "+fl[0].alert.slice(0,60)+"...":"";
+    h+='<div class="dr" onclick="dI.value=\''+d+'\';sv(\'daily\')"><div class="dd">'+fn+'</div><div class="dp">'+preview+'</div><div class="dc">'+fl.length+'</div></div>'});
+  el.innerHTML=h;
+}
+
+const sInp=document.getElementById("sI");let sT;
+sInp.addEventListener("input",()=>{clearTimeout(sT);sT=setTimeout(rS,200)});
+function rS(){
+  const q=sInp.value.toLowerCase().trim();const el=document.getElementById("sC");
+  if(!q){el.innerHTML='<div class="empty"><div class="icon">🔍</div>Search players, countries, colleges, teams...</div>';return}
+  let r=flat.filter(a=>{if(cF!=="all"&&a.type!==cF)return false;
+    return(a.player+" "+a.alert+" "+a.team+" "+a.opp+" "+a.line).toLowerCase().includes(q)});
+  r.sort((a,b)=>b.date.localeCompare(a.date));const t=r.length;const s=r.slice(0,50);
+  let h='<div class="ban"><div class="bd">"'+q.toUpperCase()+'"</div><div class="bc">'+t+' result'+(t!==1?'s':'')+(t>50?' · showing 50':'')+'</div></div>';
+  if(!s.length){el.innerHTML=h+'<div class="empty"><div class="icon">🔍</div>No results</div>';return}
+  h+='<div class="al">';s.forEach(a=>{h+=card(a,a.date)});
+  el.innerHTML=h+'</div>'+(t>50?'<div style="text-align:center;padding:16px;color:#555;font-size:10px">Showing 50 of '+t+'</div>':'');
+}
+</script>
+</body>
+</html>
