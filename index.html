@@ -4,213 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NBA Record Alerts</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js">
-// === LIVE DETECTION ===
-const LIVE_API = "https://hoopsmatic.com/api/nba-today";
-let RB = null; // Record book from baseline
-let liveTimer = null;
-let lastLiveData = null;
-
-async function loadRecordBook(){
-  try{
-    const r = await fetch("alerts_baseline.bin?v="+CACHE_BUST);
-    if(!r.ok) return null;
-    const rd = r.body.getReader(); const ch=[]; let sz=0;
-    while(true){const{done,value}=await rd.read();if(done)break;ch.push(value);sz+=value.length}
-    const cp=new Uint8Array(sz);let o=0;for(const c of ch){cp.set(c,o);o+=c.length}
-    RB = JSON.parse(pako.inflate(cp,{to:'string'}));
-    console.log("Record book loaded:",Object.keys(RB.records).length,"groups");
-    return RB;
-  }catch(e){console.error("Failed to load record book:",e);return null}
-}
-
-function buildCheck(key){
-  if(key==="5x5") return (p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5);
-  const parts=key.split("_");const conds=[];let i=0;
-  while(i<parts.length){
-    let stat=parts[i],val=null;
-    if(i+1<parts.length&&/^\d+$/.test(parts[i+1])){val=parseInt(parts[i+1]);i+=2}
-    else{for(const px of["pts","reb","ast","stl","blk","tpm"]){if(stat.startsWith(px)){val=parseInt(stat.slice(px.length));stat=px;break}}i++}
-    const m={pts:"p",reb:"r",ast:"a",stl:"s",blk:"b",tpm:"t"};
-    if(m[stat]&&val)conds.push([m[stat],val]);
-  }
-  return(p,r,a,s,b,t)=>{const v={p,r,a,s,b,t};return conds.every(c=>v[c[0]]>=c[1])};
-}
-
-const COMPOUND_LABELS = {"pts25_reb10": "25+ PTS & 10+ REB", "pts30_reb10": "30+ PTS & 10+ REB", "pts30_reb15": "30+ PTS & 15+ REB", "pts40_reb10": "40+ PTS & 10+ REB", "pts40_reb15": "40+ PTS & 15+ REB", "pts25_ast10": "25+ PTS & 10+ AST", "pts30_ast10": "30+ PTS & 10+ AST", "pts30_ast15": "30+ PTS & 15+ AST", "pts35_ast10": "35+ PTS & 10+ AST", "pts40_ast10": "40+ PTS & 10+ AST", "pts20_blk5": "20+ PTS & 5+ BLK", "pts25_blk5": "25+ PTS & 5+ BLK", "pts30_blk5": "30+ PTS & 5+ BLK", "pts20_stl5": "20+ PTS & 5+ STL", "pts25_stl5": "25+ PTS & 5+ STL", "pts30_stl5": "30+ PTS & 5+ STL", "pts30_tpm5": "30+ PTS & 5+ 3PM", "pts30_tpm8": "30+ PTS & 8+ 3PM", "pts40_tpm5": "40+ PTS & 5+ 3PM", "ast10_reb10": "10+ AST & 10+ REB", "ast15_reb10": "15+ AST & 10+ REB", "ast10_blk3": "10+ AST & 3+ BLK", "ast10_blk5": "10+ AST & 5+ BLK", "ast10_stl3": "10+ AST & 3+ STL", "ast10_stl5": "10+ AST & 5+ STL", "reb15_blk3": "15+ REB & 3+ BLK", "reb15_blk5": "15+ REB & 5+ BLK", "reb10_blk5": "10+ REB & 5+ BLK", "reb15_stl3": "15+ REB & 3+ STL", "stl3_blk3": "3+ STL & 3+ BLK", "stl5_blk3": "5+ STL & 3+ BLK", "pts20_reb10_ast10": "20-10-10", "pts25_reb10_ast10": "25-10-10", "pts30_reb10_ast10": "30-10-10", "pts30_reb10_ast5": "30+ PTS, 10+ REB & 5+ AST", "pts20_reb10_blk3": "20+ PTS, 10+ REB & 3+ BLK", "pts20_ast10_stl3": "20+ PTS, 10+ AST & 3+ STL", "pts20_reb5_ast5_stl3": "20+ PTS, 5+ REB, 5+ AST & 3+ STL", "pts20_reb5_ast5_blk3": "20+ PTS, 5+ REB, 5+ AST & 3+ BLK", "pts50": "50+ PTS", "pts60": "60+ PTS", "reb20": "20+ REB", "ast15": "15+ AST", "ast20": "20+ AST", "stl5": "5+ STL", "stl7": "7+ STL", "blk5": "5+ BLK", "blk7": "7+ BLK", "tpm8": "8+ 3PM", "tpm10": "10+ 3PM", "5x5": "5x5", "tpm5_ast10": "5+ 3PM & 10+ AST", "tpm5_reb10": "5+ 3PM & 10+ REB", "tpm5_stl3": "5+ 3PM & 3+ STL", "tpm5_blk3": "5+ 3PM & 3+ BLK", "tpm8_ast5": "8+ 3PM & 5+ AST", "tpm8_reb5": "8+ 3PM & 5+ REB", "tpm3_ast10": "3+ 3PM & 10+ AST", "tpm3_stl3": "3+ 3PM & 3+ STL", "tpm3_blk3": "3+ 3PM & 3+ BLK", "pts45_reb10": "45+ PTS & 10+ REB", "pts45_ast10": "45+ PTS & 10+ AST", "pts45_tpm5": "45+ PTS & 5+ 3PM", "pts35_reb10": "35+ PTS & 10+ REB", "pts35_reb15": "35+ PTS & 15+ REB", "pts35_blk3": "35+ PTS & 3+ BLK", "pts35_stl3": "35+ PTS & 3+ STL", "pts35_tpm5": "35+ PTS & 5+ 3PM", "pts15_blk3": "15+ PTS & 3+ BLK", "pts15_blk5": "15+ PTS & 5+ BLK", "pts15_stl3": "15+ PTS & 3+ STL", "pts15_stl5": "15+ PTS & 5+ STL", "pts15_tpm5": "15+ PTS & 5+ 3PM", "ast5_blk3": "5+ AST & 3+ BLK", "ast5_blk5": "5+ AST & 5+ BLK", "ast5_stl3": "5+ AST & 3+ STL", "ast5_stl5": "5+ AST & 5+ STL", "ast10_blk2": "10+ AST & 2+ BLK", "ast10_stl2": "10+ AST & 2+ STL", "reb10_blk3": "10+ REB & 3+ BLK", "reb10_stl3": "10+ REB & 3+ STL", "reb10_ast5": "10+ REB & 5+ AST", "reb10_tpm3": "10+ REB & 3+ 3PM", "stl2_blk2": "2+ STL & 2+ BLK", "stl2_blk3": "2+ STL & 3+ BLK", "stl3_blk2": "3+ STL & 2+ BLK", "stl4_blk2": "4+ STL & 2+ BLK", "stl2_blk4": "2+ STL & 4+ BLK", "pts25_ast5_stl3": "25+ PTS, 5+ AST & 3+ STL", "pts25_ast5_blk3": "25+ PTS, 5+ AST & 3+ BLK", "pts30_ast5_stl3": "30+ PTS, 5+ AST & 3+ STL", "pts30_ast5_blk3": "30+ PTS, 5+ AST & 3+ BLK", "pts20_reb5_stl3": "20+ PTS, 5+ REB & 3+ STL", "pts20_reb5_blk3": "20+ PTS, 5+ REB & 3+ BLK", "pts15_reb10_blk3": "15+ PTS, 10+ REB & 3+ BLK", "pts15_reb10_ast5": "15+ PTS, 10+ REB & 5+ AST", "pts15_ast10_stl3": "15+ PTS, 10+ AST & 3+ STL", "reb10_ast5_blk3": "10+ REB, 5+ AST & 3+ BLK", "reb10_ast5_stl3": "10+ REB, 5+ AST & 3+ STL", "ast5_stl3_blk3": "5+ AST, 3+ STL & 3+ BLK", "pts20_reb10_ast5_stl2": "20+ PTS, 10+ REB, 5+ AST & 2+ STL", "pts20_reb10_ast5_blk2": "20+ PTS, 10+ REB, 5+ AST & 2+ BLK", "pts20_reb5_ast5_stl2_blk2": "20+ PTS, 5+ REB, 5+ AST, 2+ STL & 2+ BLK", "pts15_reb10_ast5_blk3": "15+ PTS, 10+ REB, 5+ AST & 3+ BLK", "pts15_reb5_ast5_stl3_blk3": "15+ PTS, 5+ REB, 5+ AST, 3+ STL & 3+ BLK"}; // Will be injected
-const COMPOUND_CHECKS_JS = {};
-for(const k in COMPOUND_LABELS) COMPOUND_CHECKS_JS[k] = buildCheck(k);
-
-const GAME_STATS_MAP = {game_pts:"points",game_reb:"rebounds",game_ast:"assists",game_stl:"steals",game_blk:"blocks",game_tpm:"3-pointers"};
-const GAME_MINS_MAP = {game_pts:20,game_reb:10,game_ast:8,game_stl:4,game_blk:3,game_tpm:4};
-const AGE_FEATS_JS = {
-  pts40:["40+ PTS",(p,r,a,s,b,t)=>p>=40],pts50:["50+ PTS",(p,r,a,s,b,t)=>p>=50],
-  td:["triple-double",(p,r,a,s,b,t)=>[p,r,a,s,b].filter(v=>v>=10).length>=3],
-  dd:["double-double",(p,r,a,s,b,t)=>[p,r,a,s,b].filter(v=>v>=10).length>=2],
-  reb20:["20+ REB",(p,r,a,s,b,t)=>r>=20],ast15:["15+ AST",(p,r,a,s,b,t)=>a>=15],
-  blk5:["5+ BLK",(p,r,a,s,b,t)=>b>=5],stl5:["5+ STL",(p,r,a,s,b,t)=>s>=5],
-  "5x5":["5x5",(p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5)],
-};
-
-function filterLabel(fk){
-  if(fk==="all")return"";const[c,v]=fk.split(":");
-  return{country:`by a ${v} player`,college:`by a ${v} alum`,state:`by a player from ${v}`,pos:`by a ${v}`,team:`as a member of the ${v}`}[c]||"";
-}
-
-function getFkeys(name,team){
-  if(!RB||!RB.bio)return["all"];
-  const keys=["all"];const b=RB.bio[name]||{};const vg=new Set(RB.valid_groups||[]);
-  for(const[c,v]of[["country",b.country],["college",b.college],["state",b.state],["pos",b.pos]]){
-    if(v){const k=c+":"+v;if(vg.has(k))keys.push(k)}
-  }
-  if(team){const k="team:"+team;if(vg.has(k))keys.push(k)}
-  return keys;
-}
-
-function ageAtDate(bdayStr,gameDate){
-  if(!bdayStr)return null;
-  let bd;for(const fmt of[/^(\d+)\/(\d+)\/(\d+)$/]){
-    const m=bdayStr.match(fmt);if(m){bd=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]));break}}
-  if(!bd)return null;
-  return Math.round((gameDate-bd)/(365.25*86400000)*100)/100;
-}
-function ageStr(a){const y=Math.floor(a);const d=Math.floor((a-y)*365.25);return y+" years, "+d+" days"}
-
-function detectLiveAlerts(games){
-  if(!RB)return[];
-  const alerts=[];const today=new Date();
-  
-  for(const game of games){
-    if(!game.players||game.players.length===0)continue;
-    const statusLabel=game.status===3?"FINAL":game.status===2?"LIVE":"";
-    
-    for(const pl of game.players){
-      const{name,team,opp,pts,reb,ast,stl,blk,tpm}=pl;
-      const fkeys=getFkeys(name,team);
-      let line=pts+" PTS, "+reb+" REB, "+ast+" AST";
-      if(stl>=3||blk>=3||tpm>=5)line+=", "+stl+" STL, "+blk+" BLK, "+tpm+" 3PM";
-      
-      // 1. Single-game records
-      const sv={game_pts:pts,game_reb:reb,game_ast:ast,game_stl:stl,game_blk:blk,game_tpm:tpm};
-      for(const fk of fkeys){
-        if(fk==="all")continue;
-        for(const[stat,val]of Object.entries(sv)){
-          if(val<(GAME_MINS_MAP[stat]||0))continue;
-          const rec=(RB.records[fk]||{})[stat];
-          if(rec&&val>rec.value){
-            const fl=filterLabel(fk);const sl=GAME_STATS_MAP[stat];
-            const txt=rec.player===name?
-              `New personal record: Most ${sl} in a game ${fl} (${val}), surpassing own record of ${rec.value}`:
-              `🏆 NEW RECORD: Most ${sl} in a game ${fl} (${val}), breaking ${rec.player}'s record of ${rec.value} (${rec.date})`;
-            alerts.push({type:"record",player:name,team,opp,line,alert:txt,status:statusLabel});
-          }
-        }
-      }
-      
-      // 2. Compound first-ever
-      for(const[ck,cf]of Object.entries(COMPOUND_CHECKS_JS)){
-        if(!cf(pts,reb,ast,stl,blk,tpm))continue;
-        for(const fk of fkeys){
-          if(fk==="all")continue;
-          const ch=(RB.compound_history[fk]||{})[ck];
-          if(!ch||ch.count===0){
-            alerts.push({type:"first_ever",player:name,team,opp,line,
-              alert:`⭐ FIRST EVER: ${COMPOUND_LABELS[ck]} game ${filterLabel(fk)}`,status:statusLabel});
-          }
-        }
-      }
-      
-      // 3. Age records
-      const bday=RB.bio[name]?.bday;
-      const pAge=ageAtDate(bday,today);
-      if(pAge&&pAge>15&&pAge<50){
-        for(const[afk,[al,ac]]of Object.entries(AGE_FEATS_JS)){
-          if(!ac(pts,reb,ast,stl,blk,tpm))continue;
-          for(const fk of fkeys){
-            const ar=(RB.age_records[fk]||{})[afk];
-            if(!ar)continue;
-            const fl=fk==="all"?"":filterLabel(fk);
-            if(pAge<ar.youngest.age&&ar.youngest.player&&ar.youngest.player!==name){
-              alerts.push({type:"record",player:name,team,opp,line,
-                alert:`👶 YOUNGEST: ${al} ${fl} at ${ageStr(pAge)}, younger than ${ar.youngest.player} (${ageStr(ar.youngest.age)})`,status:statusLabel});
-            }
-            if(pAge>ar.oldest.age&&ar.oldest.player&&ar.oldest.player!==name){
-              alerts.push({type:"record",player:name,team,opp,line,
-                alert:`🧓 OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  // Dedup
-  const seen=new Set();
-  return alerts.filter(a=>{const k=a.player+a.alert.slice(0,80);if(seen.has(k))return false;seen.add(k);return true});
-}
-
-async function fetchLiveData(){
-  try{
-    const r=await fetch(LIVE_API);
-    if(!r.ok)throw new Error("API "+r.status);
-    return await r.json();
-  }catch(e){
-    console.error("Live fetch error:",e);
-    return null;
-  }
-}
-
-async function updateLive(){
-  const statusEl=document.getElementById("liveStatus");
-  const alertsEl=document.getElementById("liveAlerts");
-  const gamesEl=document.getElementById("liveGames");
-  
-  statusEl.innerHTML='<span class="live-dot"></span> Fetching live data...';
-  
-  const data=await fetchLiveData();
-  if(!data){
-    statusEl.textContent="Unable to reach live API. Check hoopsmatic.com/api/nba-today";
-    return;
-  }
-  
-  lastLiveData=data;
-  const now=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
-  const liveGames=data.games.filter(g=>g.status===2).length;
-  const finalGames=data.games.filter(g=>g.status===3).length;
-  const scheduled=data.games.filter(g=>g.status===1).length;
-  statusEl.innerHTML='<span class="live-dot"></span> Updated <span class="time">'+now+'</span> · '+
-    (liveGames?liveGames+' LIVE · ':'')+finalGames+' Final · '+scheduled+' Scheduled · Auto-refresh 2min';
-  
-  // Detect alerts
-  const liveAlerts=detectLiveAlerts(data.games);
-  
-  if(liveAlerts.length){
-    let h='<div class="ban"><div class="bd"><span class="live-dot"></span> '+liveAlerts.length+' RECORD ALERT'+(liveAlerts.length!==1?'S':'')+'</div><div class="bc">Detected from today\'s games</div></div><div class="al">';
-    liveAlerts.forEach(a=>{h+=card(a)});
-    alertsEl.innerHTML=h+'</div>';
-  }else{
-    alertsEl.innerHTML='<div class="ban"><div class="bd">NO RECORD ALERTS YET</div><div class="bc">Monitoring today\'s games for records</div></div>';
-  }
-  
-  // Show game scoreboard
-  let gh='';
-  for(const g of data.games){
-    const statusClass=g.status===2?' style="color:#ff4444;font-weight:700"':g.status===3?' style="color:#00cc88"':'';
-    gh+='<div class="live-game"><div class="gm-header"><div class="gm-teams">'+g.away+' @ '+g.home+'</div>';
-    if(g.status>=2)gh+='<div class="gm-score">'+g.awayScore+' - '+g.homeScore+'</div>';
-    gh+='</div><div class="gm-status"'+statusClass+'>'+(g.statusText||["","Scheduled","In Progress","Final"][g.status]||"")+'</div></div>';
-  }
-  gamesEl.innerHTML=gh||'<div class="no-games">No games scheduled today</div>';
-}
-
-function startLivePolling(){
-  updateLive();
-  if(liveTimer)clearInterval(liveTimer);
-  liveTimer=setInterval(updateLive,120000); // 2 min
-}
-
-</script>
 <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
@@ -278,18 +73,6 @@ body{background:#0d0d12;color:#e0e0e0;font-family:'JetBrains Mono',monospace;min
 .si:focus{border-color:#ff4444}
 .empty{text-align:center;padding:60px 20px;color:#333;font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:2px}
 .empty .icon{font-size:48px;margin-bottom:16px;opacity:0.4}
-
-/* LIVE */
-.live-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff0000;margin-right:6px;animation:pulse 1.5s infinite}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.3}}
-.live-status{text-align:center;margin-bottom:16px;font-size:11px;color:#888}
-.live-status .time{color:#ffaa00}
-.live-game{padding:12px 16px;background:#1a1a22;border-radius:8px;margin-bottom:12px;border:1px solid #222}
-.live-game .gm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
-.live-game .gm-teams{font-family:'Oswald',sans-serif;font-size:14px;font-weight:600;color:#ccc;letter-spacing:1px}
-.live-game .gm-score{font-family:'Oswald',sans-serif;font-size:16px;font-weight:700;color:#ffaa00}
-.live-game .gm-status{font-size:10px;color:#888}
-.no-games{text-align:center;padding:40px;color:#444;font-size:12px}
 @media(max-width:600px){.logo-main{font-size:28px}.tab{padding:6px 10px;font-size:10px}.ac{flex-direction:column;gap:8px}.ac .alert-text{font-size:13px}}
 </style>
 </head>
@@ -311,7 +94,6 @@ body{background:#0d0d12;color:#e0e0e0;font-family:'JetBrains Mono',monospace;min
     <button class="tab" onclick="sv('alldates')">📋 All Dates</button>
     <button class="tab" onclick="sv('search')">🔍 Search</button>
   </div>
-  
   <div class="sec on" id="sec-live">
     <div class="live-status" id="liveStatus">Loading live data...</div>
     <div id="liveAlerts"></div>
@@ -361,7 +143,7 @@ const FTYPES=["all","record","streak_record","first_ever"];
       const total=Object.values(AL).reduce((s,d)=>s+d.length,0);
       document.getElementById("dbInfo").textContent="v"+APP_VERSION+" · "+allDates.length+" DATES · "+total+" ALERTS · 2025-26";
       if(allDates.length)document.getElementById("dI").value=allDates[0];
-      bF("fD");bF("fA");bF("fS");rD();
+      bF("fD");bF("fA");bF("fS");loadRecordBook().then(()=>{startLivePolling()});
     },200);
   }catch(e){t.textContent="Error: "+e.message}
 })();
@@ -430,7 +212,7 @@ function rS(){
 
 // === LIVE DETECTION ===
 const LIVE_API = "https://hoopsmatic.com/api/nba-today";
-let RB = null; // Record book from baseline
+let RB = null;
 let liveTimer = null;
 let lastLiveData = null;
 
@@ -460,7 +242,7 @@ function buildCheck(key){
   return(p,r,a,s,b,t)=>{const v={p,r,a,s,b,t};return conds.every(c=>v[c[0]]>=c[1])};
 }
 
-const COMPOUND_LABELS = {"pts25_reb10": "25+ PTS & 10+ REB", "pts30_reb10": "30+ PTS & 10+ REB", "pts30_reb15": "30+ PTS & 15+ REB", "pts40_reb10": "40+ PTS & 10+ REB", "pts40_reb15": "40+ PTS & 15+ REB", "pts25_ast10": "25+ PTS & 10+ AST", "pts30_ast10": "30+ PTS & 10+ AST", "pts30_ast15": "30+ PTS & 15+ AST", "pts35_ast10": "35+ PTS & 10+ AST", "pts40_ast10": "40+ PTS & 10+ AST", "pts20_blk5": "20+ PTS & 5+ BLK", "pts25_blk5": "25+ PTS & 5+ BLK", "pts30_blk5": "30+ PTS & 5+ BLK", "pts20_stl5": "20+ PTS & 5+ STL", "pts25_stl5": "25+ PTS & 5+ STL", "pts30_stl5": "30+ PTS & 5+ STL", "pts30_tpm5": "30+ PTS & 5+ 3PM", "pts30_tpm8": "30+ PTS & 8+ 3PM", "pts40_tpm5": "40+ PTS & 5+ 3PM", "ast10_reb10": "10+ AST & 10+ REB", "ast15_reb10": "15+ AST & 10+ REB", "ast10_blk3": "10+ AST & 3+ BLK", "ast10_blk5": "10+ AST & 5+ BLK", "ast10_stl3": "10+ AST & 3+ STL", "ast10_stl5": "10+ AST & 5+ STL", "reb15_blk3": "15+ REB & 3+ BLK", "reb15_blk5": "15+ REB & 5+ BLK", "reb10_blk5": "10+ REB & 5+ BLK", "reb15_stl3": "15+ REB & 3+ STL", "stl3_blk3": "3+ STL & 3+ BLK", "stl5_blk3": "5+ STL & 3+ BLK", "pts20_reb10_ast10": "20-10-10", "pts25_reb10_ast10": "25-10-10", "pts30_reb10_ast10": "30-10-10", "pts30_reb10_ast5": "30+ PTS, 10+ REB & 5+ AST", "pts20_reb10_blk3": "20+ PTS, 10+ REB & 3+ BLK", "pts20_ast10_stl3": "20+ PTS, 10+ AST & 3+ STL", "pts20_reb5_ast5_stl3": "20+ PTS, 5+ REB, 5+ AST & 3+ STL", "pts20_reb5_ast5_blk3": "20+ PTS, 5+ REB, 5+ AST & 3+ BLK", "pts50": "50+ PTS", "pts60": "60+ PTS", "reb20": "20+ REB", "ast15": "15+ AST", "ast20": "20+ AST", "stl5": "5+ STL", "stl7": "7+ STL", "blk5": "5+ BLK", "blk7": "7+ BLK", "tpm8": "8+ 3PM", "tpm10": "10+ 3PM", "5x5": "5x5", "tpm5_ast10": "5+ 3PM & 10+ AST", "tpm5_reb10": "5+ 3PM & 10+ REB", "tpm5_stl3": "5+ 3PM & 3+ STL", "tpm5_blk3": "5+ 3PM & 3+ BLK", "tpm8_ast5": "8+ 3PM & 5+ AST", "tpm8_reb5": "8+ 3PM & 5+ REB", "tpm3_ast10": "3+ 3PM & 10+ AST", "tpm3_stl3": "3+ 3PM & 3+ STL", "tpm3_blk3": "3+ 3PM & 3+ BLK", "pts45_reb10": "45+ PTS & 10+ REB", "pts45_ast10": "45+ PTS & 10+ AST", "pts45_tpm5": "45+ PTS & 5+ 3PM", "pts35_reb10": "35+ PTS & 10+ REB", "pts35_reb15": "35+ PTS & 15+ REB", "pts35_blk3": "35+ PTS & 3+ BLK", "pts35_stl3": "35+ PTS & 3+ STL", "pts35_tpm5": "35+ PTS & 5+ 3PM", "pts15_blk3": "15+ PTS & 3+ BLK", "pts15_blk5": "15+ PTS & 5+ BLK", "pts15_stl3": "15+ PTS & 3+ STL", "pts15_stl5": "15+ PTS & 5+ STL", "pts15_tpm5": "15+ PTS & 5+ 3PM", "ast5_blk3": "5+ AST & 3+ BLK", "ast5_blk5": "5+ AST & 5+ BLK", "ast5_stl3": "5+ AST & 3+ STL", "ast5_stl5": "5+ AST & 5+ STL", "ast10_blk2": "10+ AST & 2+ BLK", "ast10_stl2": "10+ AST & 2+ STL", "reb10_blk3": "10+ REB & 3+ BLK", "reb10_stl3": "10+ REB & 3+ STL", "reb10_ast5": "10+ REB & 5+ AST", "reb10_tpm3": "10+ REB & 3+ 3PM", "stl2_blk2": "2+ STL & 2+ BLK", "stl2_blk3": "2+ STL & 3+ BLK", "stl3_blk2": "3+ STL & 2+ BLK", "stl4_blk2": "4+ STL & 2+ BLK", "stl2_blk4": "2+ STL & 4+ BLK", "pts25_ast5_stl3": "25+ PTS, 5+ AST & 3+ STL", "pts25_ast5_blk3": "25+ PTS, 5+ AST & 3+ BLK", "pts30_ast5_stl3": "30+ PTS, 5+ AST & 3+ STL", "pts30_ast5_blk3": "30+ PTS, 5+ AST & 3+ BLK", "pts20_reb5_stl3": "20+ PTS, 5+ REB & 3+ STL", "pts20_reb5_blk3": "20+ PTS, 5+ REB & 3+ BLK", "pts15_reb10_blk3": "15+ PTS, 10+ REB & 3+ BLK", "pts15_reb10_ast5": "15+ PTS, 10+ REB & 5+ AST", "pts15_ast10_stl3": "15+ PTS, 10+ AST & 3+ STL", "reb10_ast5_blk3": "10+ REB, 5+ AST & 3+ BLK", "reb10_ast5_stl3": "10+ REB, 5+ AST & 3+ STL", "ast5_stl3_blk3": "5+ AST, 3+ STL & 3+ BLK", "pts20_reb10_ast5_stl2": "20+ PTS, 10+ REB, 5+ AST & 2+ STL", "pts20_reb10_ast5_blk2": "20+ PTS, 10+ REB, 5+ AST & 2+ BLK", "pts20_reb5_ast5_stl2_blk2": "20+ PTS, 5+ REB, 5+ AST, 2+ STL & 2+ BLK", "pts15_reb10_ast5_blk3": "15+ PTS, 10+ REB, 5+ AST & 3+ BLK", "pts15_reb5_ast5_stl3_blk3": "15+ PTS, 5+ REB, 5+ AST, 3+ STL & 3+ BLK"}; // Will be injected
+const COMPOUND_LABELS = {"pts25_reb10": "25+ PTS & 10+ REB", "pts30_reb10": "30+ PTS & 10+ REB", "pts30_reb15": "30+ PTS & 15+ REB", "pts40_reb10": "40+ PTS & 10+ REB", "pts40_reb15": "40+ PTS & 15+ REB", "pts25_ast10": "25+ PTS & 10+ AST", "pts30_ast10": "30+ PTS & 10+ AST", "pts30_ast15": "30+ PTS & 15+ AST", "pts35_ast10": "35+ PTS & 10+ AST", "pts40_ast10": "40+ PTS & 10+ AST", "pts20_blk5": "20+ PTS & 5+ BLK", "pts25_blk5": "25+ PTS & 5+ BLK", "pts30_blk5": "30+ PTS & 5+ BLK", "pts20_stl5": "20+ PTS & 5+ STL", "pts25_stl5": "25+ PTS & 5+ STL", "pts30_stl5": "30+ PTS & 5+ STL", "pts30_tpm5": "30+ PTS & 5+ 3PM", "pts30_tpm8": "30+ PTS & 8+ 3PM", "pts40_tpm5": "40+ PTS & 5+ 3PM", "ast10_reb10": "10+ AST & 10+ REB", "ast15_reb10": "15+ AST & 10+ REB", "ast10_blk3": "10+ AST & 3+ BLK", "ast10_blk5": "10+ AST & 5+ BLK", "ast10_stl3": "10+ AST & 3+ STL", "ast10_stl5": "10+ AST & 5+ STL", "reb15_blk3": "15+ REB & 3+ BLK", "reb15_blk5": "15+ REB & 5+ BLK", "reb10_blk5": "10+ REB & 5+ BLK", "reb15_stl3": "15+ REB & 3+ STL", "stl3_blk3": "3+ STL & 3+ BLK", "stl5_blk3": "5+ STL & 3+ BLK", "pts20_reb10_ast10": "20-10-10", "pts25_reb10_ast10": "25-10-10", "pts30_reb10_ast10": "30-10-10", "pts30_reb10_ast5": "30+ PTS, 10+ REB & 5+ AST", "pts20_reb10_blk3": "20+ PTS, 10+ REB & 3+ BLK", "pts20_ast10_stl3": "20+ PTS, 10+ AST & 3+ STL", "pts20_reb5_ast5_stl3": "20+ PTS, 5+ REB, 5+ AST & 3+ STL", "pts20_reb5_ast5_blk3": "20+ PTS, 5+ REB, 5+ AST & 3+ BLK", "pts50": "50+ PTS", "pts60": "60+ PTS", "reb20": "20+ REB", "ast15": "15+ AST", "ast20": "20+ AST", "stl5": "5+ STL", "stl7": "7+ STL", "blk5": "5+ BLK", "blk7": "7+ BLK", "tpm8": "8+ 3PM", "tpm10": "10+ 3PM", "5x5": "5x5", "tpm5_ast10": "5+ 3PM & 10+ AST", "tpm5_reb10": "5+ 3PM & 10+ REB", "tpm5_stl3": "5+ 3PM & 3+ STL", "tpm5_blk3": "5+ 3PM & 3+ BLK", "tpm8_ast5": "8+ 3PM & 5+ AST", "tpm8_reb5": "8+ 3PM & 5+ REB", "tpm3_ast10": "3+ 3PM & 10+ AST", "tpm3_stl3": "3+ 3PM & 3+ STL", "tpm3_blk3": "3+ 3PM & 3+ BLK", "pts45_reb10": "45+ PTS & 10+ REB", "pts45_ast10": "45+ PTS & 10+ AST", "pts45_tpm5": "45+ PTS & 5+ 3PM", "pts35_reb10": "35+ PTS & 10+ REB", "pts35_reb15": "35+ PTS & 15+ REB", "pts35_blk3": "35+ PTS & 3+ BLK", "pts35_stl3": "35+ PTS & 3+ STL", "pts35_tpm5": "35+ PTS & 5+ 3PM", "pts15_blk3": "15+ PTS & 3+ BLK", "pts15_blk5": "15+ PTS & 5+ BLK", "pts15_stl3": "15+ PTS & 3+ STL", "pts15_stl5": "15+ PTS & 5+ STL", "pts15_tpm5": "15+ PTS & 5+ 3PM", "ast5_blk3": "5+ AST & 3+ BLK", "ast5_blk5": "5+ AST & 5+ BLK", "ast5_stl3": "5+ AST & 3+ STL", "ast5_stl5": "5+ AST & 5+ STL", "ast10_blk2": "10+ AST & 2+ BLK", "ast10_stl2": "10+ AST & 2+ STL", "reb10_blk3": "10+ REB & 3+ BLK", "reb10_stl3": "10+ REB & 3+ STL", "reb10_ast5": "10+ REB & 5+ AST", "reb10_tpm3": "10+ REB & 3+ 3PM", "stl2_blk2": "2+ STL & 2+ BLK", "stl2_blk3": "2+ STL & 3+ BLK", "stl3_blk2": "3+ STL & 2+ BLK", "stl4_blk2": "4+ STL & 2+ BLK", "stl2_blk4": "2+ STL & 4+ BLK", "pts25_ast5_stl3": "25+ PTS, 5+ AST & 3+ STL", "pts25_ast5_blk3": "25+ PTS, 5+ AST & 3+ BLK", "pts30_ast5_stl3": "30+ PTS, 5+ AST & 3+ STL", "pts30_ast5_blk3": "30+ PTS, 5+ AST & 3+ BLK", "pts20_reb5_stl3": "20+ PTS, 5+ REB & 3+ STL", "pts20_reb5_blk3": "20+ PTS, 5+ REB & 3+ BLK", "pts15_reb10_blk3": "15+ PTS, 10+ REB & 3+ BLK", "pts15_reb10_ast5": "15+ PTS, 10+ REB & 5+ AST", "pts15_ast10_stl3": "15+ PTS, 10+ AST & 3+ STL", "reb10_ast5_blk3": "10+ REB, 5+ AST & 3+ BLK", "reb10_ast5_stl3": "10+ REB, 5+ AST & 3+ STL", "ast5_stl3_blk3": "5+ AST, 3+ STL & 3+ BLK", "pts20_reb10_ast5_stl2": "20+ PTS, 10+ REB, 5+ AST & 2+ STL", "pts20_reb10_ast5_blk2": "20+ PTS, 10+ REB, 5+ AST & 2+ BLK", "pts20_reb5_ast5_stl2_blk2": "20+ PTS, 5+ REB, 5+ AST, 2+ STL & 2+ BLK", "pts15_reb10_ast5_blk3": "15+ PTS, 10+ REB, 5+ AST & 3+ BLK", "pts15_reb5_ast5_stl3_blk3": "15+ PTS, 5+ REB, 5+ AST, 3+ STL & 3+ BLK"};
 const COMPOUND_CHECKS_JS = {};
 for(const k in COMPOUND_LABELS) COMPOUND_CHECKS_JS[k] = buildCheck(k);
 
@@ -479,7 +261,6 @@ function filterLabel(fk){
   if(fk==="all")return"";const[c,v]=fk.split(":");
   return{country:`by a ${v} player`,college:`by a ${v} alum`,state:`by a player from ${v}`,pos:`by a ${v}`,team:`as a member of the ${v}`}[c]||"";
 }
-
 function getFkeys(name,team){
   if(!RB||!RB.bio)return["all"];
   const keys=["all"];const b=RB.bio[name]||{};const vg=new Set(RB.valid_groups||[]);
@@ -489,12 +270,11 @@ function getFkeys(name,team){
   if(team){const k="team:"+team;if(vg.has(k))keys.push(k)}
   return keys;
 }
-
 function ageAtDate(bdayStr,gameDate){
   if(!bdayStr)return null;
-  let bd;for(const fmt of[/^(\d+)\/(\d+)\/(\d+)$/]){
-    const m=bdayStr.match(fmt);if(m){bd=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]));break}}
-  if(!bd)return null;
+  const m=bdayStr.match(/^(\d+)\/(\d+)\/(\d+)$/);
+  if(!m)return null;
+  const bd=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]));
   return Math.round((gameDate-bd)/(365.25*86400000)*100)/100;
 }
 function ageStr(a){const y=Math.floor(a);const d=Math.floor((a-y)*365.25);return y+" years, "+d+" days"}
@@ -502,18 +282,14 @@ function ageStr(a){const y=Math.floor(a);const d=Math.floor((a-y)*365.25);return
 function detectLiveAlerts(games){
   if(!RB)return[];
   const alerts=[];const today=new Date();
-  
   for(const game of games){
     if(!game.players||game.players.length===0)continue;
     const statusLabel=game.status===3?"FINAL":game.status===2?"LIVE":"";
-    
     for(const pl of game.players){
       const{name,team,opp,pts,reb,ast,stl,blk,tpm}=pl;
       const fkeys=getFkeys(name,team);
       let line=pts+" PTS, "+reb+" REB, "+ast+" AST";
       if(stl>=3||blk>=3||tpm>=5)line+=", "+stl+" STL, "+blk+" BLK, "+tpm+" 3PM";
-      
-      // 1. Single-game records
       const sv={game_pts:pts,game_reb:reb,game_ast:ast,game_stl:stl,game_blk:blk,game_tpm:tpm};
       for(const fk of fkeys){
         if(fk==="all")continue;
@@ -524,13 +300,11 @@ function detectLiveAlerts(games){
             const fl=filterLabel(fk);const sl=GAME_STATS_MAP[stat];
             const txt=rec.player===name?
               `New personal record: Most ${sl} in a game ${fl} (${val}), surpassing own record of ${rec.value}`:
-              `🏆 NEW RECORD: Most ${sl} in a game ${fl} (${val}), breaking ${rec.player}'s record of ${rec.value} (${rec.date})`;
+              `\u{1F3C6} NEW RECORD: Most ${sl} in a game ${fl} (${val}), breaking ${rec.player}'s record of ${rec.value} (${rec.date})`;
             alerts.push({type:"record",player:name,team,opp,line,alert:txt,status:statusLabel});
           }
         }
       }
-      
-      // 2. Compound first-ever
       for(const[ck,cf]of Object.entries(COMPOUND_CHECKS_JS)){
         if(!cf(pts,reb,ast,stl,blk,tpm))continue;
         for(const fk of fkeys){
@@ -538,12 +312,10 @@ function detectLiveAlerts(games){
           const ch=(RB.compound_history[fk]||{})[ck];
           if(!ch||ch.count===0){
             alerts.push({type:"first_ever",player:name,team,opp,line,
-              alert:`⭐ FIRST EVER: ${COMPOUND_LABELS[ck]} game ${filterLabel(fk)}`,status:statusLabel});
+              alert:`\u2B50 FIRST EVER: ${COMPOUND_LABELS[ck]} game ${filterLabel(fk)}`,status:statusLabel});
           }
         }
       }
-      
-      // 3. Age records
       const bday=RB.bio[name]?.bday;
       const pAge=ageAtDate(bday,today);
       if(pAge&&pAge>15&&pAge<50){
@@ -553,60 +325,39 @@ function detectLiveAlerts(games){
             const ar=(RB.age_records[fk]||{})[afk];
             if(!ar)continue;
             const fl=fk==="all"?"":filterLabel(fk);
-            if(pAge<ar.youngest.age&&ar.youngest.player&&ar.youngest.player!==name){
-              alerts.push({type:"record",player:name,team,opp,line,
-                alert:`👶 YOUNGEST: ${al} ${fl} at ${ageStr(pAge)}, younger than ${ar.youngest.player} (${ageStr(ar.youngest.age)})`,status:statusLabel});
-            }
-            if(pAge>ar.oldest.age&&ar.oldest.player&&ar.oldest.player!==name){
-              alerts.push({type:"record",player:name,team,opp,line,
-                alert:`🧓 OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
-            }
+            if(pAge<ar.youngest.age&&ar.youngest.player&&ar.youngest.player!==name)
+              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F476} YOUNGEST: ${al} ${fl} at ${ageStr(pAge)}, younger than ${ar.youngest.player} (${ageStr(ar.youngest.age)})`,status:statusLabel});
+            if(pAge>ar.oldest.age&&ar.oldest.player&&ar.oldest.player!==name)
+              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
           }
         }
       }
     }
   }
-  
-  // Dedup
   const seen=new Set();
   return alerts.filter(a=>{const k=a.player+a.alert.slice(0,80);if(seen.has(k))return false;seen.add(k);return true});
 }
 
 async function fetchLiveData(){
-  try{
-    const r=await fetch(LIVE_API);
-    if(!r.ok)throw new Error("API "+r.status);
-    return await r.json();
-  }catch(e){
-    console.error("Live fetch error:",e);
-    return null;
-  }
+  try{const r=await fetch(LIVE_API);if(!r.ok)throw new Error("API "+r.status);return await r.json()}
+  catch(e){console.error("Live fetch error:",e);return null}
 }
 
 async function updateLive(){
   const statusEl=document.getElementById("liveStatus");
   const alertsEl=document.getElementById("liveAlerts");
   const gamesEl=document.getElementById("liveGames");
-  
   statusEl.innerHTML='<span class="live-dot"></span> Fetching live data...';
-  
   const data=await fetchLiveData();
-  if(!data){
-    statusEl.textContent="Unable to reach live API. Check hoopsmatic.com/api/nba-today";
-    return;
-  }
-  
+  if(!data){statusEl.textContent="Unable to reach live API";return}
   lastLiveData=data;
   const now=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
   const liveGames=data.games.filter(g=>g.status===2).length;
   const finalGames=data.games.filter(g=>g.status===3).length;
   const scheduled=data.games.filter(g=>g.status===1).length;
-  statusEl.innerHTML='<span class="live-dot"></span> Updated <span class="time">'+now+'</span> · '+
-    (liveGames?liveGames+' LIVE · ':'')+finalGames+' Final · '+scheduled+' Scheduled · Auto-refresh 2min';
-  
-  // Detect alerts
+  statusEl.innerHTML='<span class="live-dot"></span> Updated <span class="time">'+now+'</span> \u00B7 '+
+    (liveGames?liveGames+' LIVE \u00B7 ':'')+finalGames+' Final \u00B7 '+scheduled+' Scheduled \u00B7 Auto-refresh';
   const liveAlerts=detectLiveAlerts(data.games);
-  
   if(liveAlerts.length){
     let h='<div class="ban"><div class="bd"><span class="live-dot"></span> '+liveAlerts.length+' RECORD ALERT'+(liveAlerts.length!==1?'S':'')+'</div><div class="bc">Detected from today\'s games</div></div><div class="al">';
     liveAlerts.forEach(a=>{h+=card(a)});
@@ -614,8 +365,6 @@ async function updateLive(){
   }else{
     alertsEl.innerHTML='<div class="ban"><div class="bd">NO RECORD ALERTS YET</div><div class="bc">Monitoring today\'s games for records</div></div>';
   }
-  
-  // Show game scoreboard
   let gh='';
   for(const g of data.games){
     const statusClass=g.status===2?' style="color:#ff4444;font-weight:700"':g.status===3?' style="color:#00cc88"':'';
@@ -629,7 +378,8 @@ async function updateLive(){
 function startLivePolling(){
   updateLive();
   if(liveTimer)clearInterval(liveTimer);
-  liveTimer=setInterval(updateLive,120000); // 2 min
+  const hasLive=lastLiveData&&lastLiveData.games&&lastLiveData.games.some(g=>g.status===2);
+  liveTimer=setInterval(updateLive,hasLive?30000:120000);
 }
 
 </script>
