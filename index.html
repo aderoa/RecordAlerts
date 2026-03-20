@@ -332,6 +332,35 @@ function detectLiveAlerts(games){
           }
         }
       }
+      // Career highs
+      if(RB.career_highs){
+        const ch=RB.career_highs[name];
+        if(ch){
+          const CH_LABELS={pts:"points",reb:"rebounds",ast:"assists",stl:"steals",blk:"blocks",tpm:"3-pointers"};
+          const CH_MINS={pts:30,reb:15,ast:12,stl:5,blk:5,tpm:6};
+          for(const[stat,val]of[["pts",pts],["reb",reb],["ast",ast],["stl",stl],["blk",blk],["tpm",tpm]]){
+            if(val>ch[stat]&&val>=CH_MINS[stat])
+              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F3AF} CAREER HIGH: ${val} ${CH_LABELS[stat]} (previous: ${ch[stat]})`,status:statusLabel});
+          }
+        }
+      }
+      // Debut detection
+      if(RB.players_ever){
+        if(!window._liveSeenPlayers) window._liveSeenPlayers=new Set();
+        if(!window._liveSeenPlayers.has(name)){
+          window._liveSeenPlayers.add(name);
+          const pe=new Set(RB.players_ever);
+          if(!pe.has(name)){
+            const b=RB.bio[name]||{};const bi=[];
+            if(b.country&&b.country!=="United States")bi.push(b.country);
+            if(b.college)bi.push(b.college);
+            if(b.state)bi.push(b.state);
+            const bs=bi.join(" \u00B7 ");
+            alerts.push({type:"first_ever",player:name,team,opp,line,
+              alert:`\u{1F31F} NBA DEBUT: ${name} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
+          }
+        }
+      }
     }
   }
   const seen=new Set();
