@@ -329,8 +329,12 @@ function detectLiveAlerts(games){
             const fl=fk==="all"?"":filterLabel(fk);
             if(pAge<ar.youngest.age&&ar.youngest.player&&ar.youngest.player!==name)
               alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F476} YOUNGEST: ${al} ${fl} at ${ageStr(pAge)}, younger than ${ar.youngest.player} (${ageStr(ar.youngest.age)})`,status:statusLabel});
-            if(pAge>ar.oldest.age&&ar.oldest.player&&ar.oldest.player!==name)
-              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
+            if(pAge>ar.oldest.age&&ar.oldest.player){
+              if(ar.oldest.player!==name)
+                alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
+              else
+                alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)} (extending own record)`,status:statusLabel});
+            }
           }
         }
       }
@@ -343,6 +347,30 @@ function detectLiveAlerts(games){
           for(const[stat,val]of[["pts",pts],["reb",reb],["ast",ast],["stl",stl],["blk",blk],["tpm",tpm]]){
             if(val>ch[stat]&&val>=CH_MINS[stat])
               alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F3AF} CAREER HIGH: ${val} ${CH_LABELS[stat]} (previous: ${ch[stat]})`,status:statusLabel});
+          }
+        }
+      }
+      // First-since detection for rare feats
+      if(RB.compound_history){
+        const FS_FEATS={pts50:["50+ PTS",(p,r,a,s,b,t)=>p>=50],pts60:["60+ PTS",(p,r,a,s,b,t)=>p>=60],
+          reb20:["20+ REB",(p,r,a,s,b,t)=>r>=20],ast20:["20+ AST",(p,r,a,s,b,t)=>a>=20],
+          stl7:["7+ STL",(p,r,a,s,b,t)=>s>=7],blk7:["7+ BLK",(p,r,a,s,b,t)=>b>=7],
+          tpm10:["10+ 3PM",(p,r,a,s,b,t)=>t>=10],
+          "5x5":["5x5",(p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5)],
+          pts40_reb15:["40+ PTS & 15+ REB",(p,r,a,s,b,t)=>p>=40&&r>=15],
+          pts40_ast10:["40+ PTS & 10+ AST",(p,r,a,s,b,t)=>p>=40&&a>=10],
+          pts30_reb10_ast10:["30-10-10",(p,r,a,s,b,t)=>p>=30&&r>=10&&a>=10]};
+        for(const[fsk,[fsl,fsc]]of Object.entries(FS_FEATS)){
+          if(!fsc(pts,reb,ast,stl,blk,tpm))continue;
+          for(const fk of fkeys){
+            const ch2=(RB.compound_history[fk]||{})[fsk];
+            if(!ch2||!ch2.last)continue;
+            const fl=fk==="all"?"":filterLabel(fk);
+            const lastP=ch2.last.player||"";const lastD=ch2.last.date||"";
+            if(lastP&&lastP!==name){
+              alerts.push({type:"first_ever",player:name,team,opp,line,
+                alert:`\u{1F4C5} FIRST SINCE: ${fsl} game ${fl} \u2014 first since ${lastP} (${lastD})`,status:statusLabel});
+            }
           }
         }
       }
