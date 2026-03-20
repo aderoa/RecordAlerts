@@ -344,21 +344,17 @@ function detectLiveAlerts(games){
           }
         }
       }
-      // Debut detection
+      // Debut detection - any name not in historical database is a debut
       if(RB.players_ever){
-        if(!window._liveSeenPlayers) window._liveSeenPlayers=new Set();
-        if(!window._liveSeenPlayers.has(name)){
-          window._liveSeenPlayers.add(name);
-          const pe=new Set(RB.players_ever);
-          if(!pe.has(name)){
-            const b=RB.bio[name]||{};const bi=[];
-            if(b.country&&b.country!=="United States")bi.push(b.country);
-            if(b.college)bi.push(b.college);
-            if(b.state)bi.push(b.state);
-            const bs=bi.join(" \u00B7 ");
-            alerts.push({type:"first_ever",player:name,team,opp,line,
-              alert:`\u{1F31F} NBA DEBUT: ${name} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
-          }
+        if(!window._peSet) window._peSet=new Set(RB.players_ever);
+        if(!window._peSet.has(name)){
+          const b=RB.bio[name]||{};const bi=[];
+          if(b.country&&b.country!=="United States")bi.push(b.country);
+          if(b.college)bi.push(b.college);
+          if(b.state)bi.push(b.state);
+          const bs=bi.join(" \u00B7 ");
+          alerts.push({type:"first_ever",player:name,team,opp,line,
+            alert:`\u{1F31F} NBA DEBUT: ${name} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
         }
       }
     }
