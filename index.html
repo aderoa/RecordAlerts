@@ -121,7 +121,7 @@ body{background:#0d0d12;color:#e0e0e0;font-family:'JetBrains Mono',monospace;min
   </div>
 </div>
 <script>
-const APP_VERSION="2026.03.18a";
+const APP_VERSION="2026.03.19a";
 const CACHE_BUST=Date.now();
 let AL={},allDates=[],flat=[],cF="all";
 const TYPE_ICONS={record:"🏆",streak_record:"🔥",streak_extend:"📈",first_ever:"⭐"};
@@ -286,7 +286,9 @@ function detectLiveAlerts(games){
     if(!game.players||game.players.length===0)continue;
     const statusLabel=game.status===3?"FINAL":game.status===2?"LIVE":"";
     for(const pl of game.players){
-      const{name,team,opp,pts,reb,ast,stl,blk,tpm}=pl;
+      const{name:rawName,team,opp,pts,reb,ast,stl,blk,tpm}=pl;
+      // Map NBA API name to database name
+      const name=(RB.name_map&&RB.name_map[rawName])||rawName;
       const fkeys=getFkeys(name,team);
       let line=pts+" PTS, "+reb+" REB, "+ast+" AST";
       if(stl>=3||blk>=3||tpm>=5)line+=", "+stl+" STL, "+blk+" BLK, "+tpm+" 3PM";
@@ -346,9 +348,10 @@ function detectLiveAlerts(games){
       }
       // Debut detection - any name not in historical database is a debut
       if(RB.players_ever){
-        if(!window._peSet) window._peSet=new Set(RB.players_ever);
-        if(!window._peSet.has(name)){
-          const b=RB.bio[name]||{};const bi=[];
+        if(!window._peSet){window._peSet=new Set(RB.players_ever)}
+        const normName=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+        if(!window._peSet.has(name)&&!window._peSet.has(normName)){
+          const b=RB.bio[name]||RB.bio[normName]||{};const bi=[];
           if(b.country&&b.country!=="United States")bi.push(b.country);
           if(b.college)bi.push(b.college);
           if(b.state)bi.push(b.state);
