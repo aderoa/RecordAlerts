@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NBA Record Alerts</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚨</text></svg>">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+::-webkit-scrollbar{height:6px;width:6px}::-webkit-scrollbar-track{background:#0d0d12}::-webkit-scrollbar-thumb{background:#333;border-radius:3px}
+body{background:#0d0d12;color:#e0e0e0;font-family:'JetBrains Mono',monospace;min-height:100vh}
+#loadScreen{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;text-align:center}
+.logo-main{font-family:'Oswald',sans-serif;font-size:42px;font-weight:700;letter-spacing:6px;text-transform:uppercase;line-height:1.1;background:linear-gradient(135deg,#ff4444 0%,#ffaa00 50%,#ff4444 100%);background-size:200% auto;-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;animation:shimmer 3s ease-in-out infinite}
+@keyframes shimmer{0%,100%{background-position:0% center}50%{background-position:200% center}}
+.subtitle{font-size:12px;color:#555;letter-spacing:3px;text-transform:uppercase;margin:8px 0 40px;font-family:'Oswald',sans-serif}
+#progressText{font-size:11px;color:#555;margin-top:8px}
+#app{display:none;padding:20px 16px;max-width:960px;margin:0 auto}
+.header{text-align:center;margin-bottom:20px}
+.logo-sm{font-family:'Oswald',sans-serif;font-size:24px;font-weight:700;letter-spacing:4px;text-transform:uppercase;background:linear-gradient(90deg,#ff4444,#ffaa00);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.db-info{font-size:10px;color:#555;letter-spacing:2px;margin-top:2px}
+.admin{font-size:10px;margin-top:4px}
+.admin a{color:#444;text-decoration:none}.admin a:hover{color:#ffaa00}
+/* TABS */
+.tabs{display:flex;flex-wrap:wrap;gap:4px;justify-content:center;margin-bottom:20px}
+.tab{padding:8px 16px;border-radius:6px;border:2px solid #222;cursor:pointer;font-family:'Oswald',sans-serif;font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;transition:all 0.15s;background:transparent;color:#666}
+.tab:hover{border-color:#444;color:#aaa}
+.tab.on{background:#ff4444;border-color:#ff4444;color:#fff}
+.sec{display:none}.sec.on{display:block}
+/* DATE NAV */
+.date-area{text-align:center;margin-bottom:20px}
+.di{padding:10px 16px;border-radius:6px;background:#1a1a22;color:#e0e0e0;font-size:15px;font-family:'JetBrains Mono',monospace;outline:none;border:2px solid #333;cursor:pointer}
+.di:focus{border-color:#ff4444}
+.dnav{display:flex;justify-content:center;gap:6px;margin-top:10px;flex-wrap:wrap}
+.nb{padding:6px 14px;border-radius:14px;border:1px solid #333;background:transparent;color:#888;font-size:10px;font-weight:600;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+.nb:hover{border-color:#ff4444;color:#ff4444}
+/* FILTERS */
+.fr{display:flex;justify-content:center;gap:5px;margin-bottom:16px;flex-wrap:wrap}
+.fb{padding:5px 10px;border-radius:12px;border:1px solid #333;background:transparent;color:#666;font-size:9px;font-weight:600;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+.fb:hover{border-color:#ffaa00;color:#ffaa00}.fb.on{background:#ffaa00;border-color:#ffaa00;color:#000}
+/* BANNER */
+.ban{text-align:center;margin-bottom:20px;padding:16px 20px;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 100%);border-radius:10px;border:1px solid #222}
+.ban .bd{font-family:'Oswald',sans-serif;font-size:20px;font-weight:700;color:#fff;letter-spacing:2px;text-transform:uppercase}
+.ban .bc{font-size:11px;color:#888;margin-top:4px;letter-spacing:1px}
+/* ALERT CARDS */
+.al{display:flex;flex-direction:column;gap:12px}
+.ac{padding:16px 20px;border-radius:10px;border:1px solid #222;background:#12121a;transition:all 0.15s;display:flex;align-items:flex-start;gap:16px}
+.ac:hover{border-color:#333;box-shadow:0 4px 20px rgba(0,0,0,0.3)}
+.ac.type-record{border-left:4px solid #ff4444}
+.ac.type-streak_record{border-left:4px solid #ffaa00}
+.ac.type-streak_extend{border-left:4px solid #ff8800}
+.ac.type-first_ever{border-left:4px solid #00cc88}
+.ac .ico{font-size:28px;flex-shrink:0;margin-top:2px}
+.ac .bod{flex:1;min-width:0}
+.ac .alert-text{font-family:'Oswald',sans-serif;font-size:15px;font-weight:600;color:#fff;line-height:1.4;letter-spacing:0.3px}
+.ac .det{font-size:11px;color:#666;margin-top:6px;line-height:1.5}
+.ac .det b{color:#ccc;font-weight:600}
+.ac .det .line{color:#555;font-style:italic}
+.ac .tg{display:inline-block;padding:2px 8px;border-radius:8px;font-size:9px;font-weight:600;letter-spacing:0.5px;text-transform:uppercase;margin-top:8px}
+.tg.tag-record{background:#ff444422;color:#ff4444}
+.tg.tag-streak_record{background:#ffaa0022;color:#ffaa00}
+.tg.tag-streak_extend{background:#ff880022;color:#ff8800}
+.tg.tag-first_ever{background:#00cc8822;color:#00cc88}
+/* ALL DATES LIST */
+.dr{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid #1a1a22;cursor:pointer;transition:background 0.1s}
+.dr:hover{background:#1a1a22}
+.dr .dd{font-weight:600;color:#ccc;font-size:12px;min-width:90px}
+.dr .dp{font-size:10px;color:#555;flex:1;margin:0 12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dr .dc{font-size:12px;color:#ffaa00;font-weight:700;min-width:30px;text-align:right;font-family:'Oswald',sans-serif}
+/* SEARCH */
+.si{width:100%;padding:12px 16px;border-radius:6px;background:#1a1a22;color:#e0e0e0;font-size:14px;font-family:'JetBrains Mono',monospace;outline:none;border:2px solid #333}
+.si:focus{border-color:#ff4444}
+.empty{text-align:center;padding:60px 20px;color:#333;font-family:'Oswald',sans-serif;font-size:15px;letter-spacing:2px}
+.empty .icon{font-size:48px;margin-bottom:16px;opacity:0.4}
+@media(max-width:600px){.logo-main{font-size:28px}.tab{padding:6px 10px;font-size:10px}.ac{flex-direction:column;gap:8px}.ac .alert-text{font-size:13px}}
+</style>
+</head>
+<body>
+<div id="loadScreen">
+  <div class="logo-main">RECORD<br>ALERTS</div>
+  <div class="subtitle">NBA Records by Country · College · State · Position</div>
+  <div id="progressText">Loading...</div>
+</div>
+<div id="app">
+  <div class="header">
+    <div class="logo-sm">NBA RECORD ALERTS</div>
+    <div class="db-info" id="dbInfo"></div>
+    <div class="admin"><a href="https://github.com/aderoa/RecordAlerts/actions/workflows/update-alerts.yml" target="_blank">⚙️ Run Update</a></div>
+  </div>
+  <div class="tabs">
+    <button class="tab on" onclick="sv('live')"><span class="live-dot"></span>LIVE</button>
+    <button class="tab" onclick="sv('daily')">🚨 Latest</button>
+    <button class="tab" onclick="sv('alldates')">📋 All Dates</button>
+    <button class="tab" onclick="sv('search')">🔍 Search</button>
+  </div>
+  <div class="sec on" id="sec-live">
+    <div class="live-status" id="liveStatus">Loading live data...</div>
+    <div id="liveAlerts"></div>
+    <div id="liveGames"></div>
+  </div>
+  <div class="sec" id="sec-daily">
+    <div class="date-area"><input type="date" class="di" id="dI">
+      <div class="dnav">
+        <button class="nb" onclick="sd(-1)">← Day Before</button>
+        <button class="nb" onclick="st()">Today</button>
+        <button class="nb" onclick="sd(1)">Day After →</button>
+      </div>
+    </div>
+    <div class="fr" id="fD"></div>
+    <div id="dC"></div>
+  </div>
+  <div class="sec" id="sec-alldates">
+    <div class="fr" id="fA"></div>
+    <div id="aC"></div>
+  </div>
+  <div class="sec" id="sec-search">
+    <div style="max-width:500px;margin:0 auto 20px"><input class="si" id="sI" type="text" placeholder="Search player, team, college, country..." autocomplete="off"></div>
+    <div class="fr" id="fS"></div>
+    <div id="sC"></div>
+  </div>
+</div>
+<script>
+const APP_VERSION="2026.03.19a";
+const CACHE_BUST=Date.now();
+let AL={},allDates=[],flat=[],cF="all";
+const TYPE_ICONS={record:"🏆",streak_record:"🔥",streak_extend:"📈",first_ever:"⭐"};
+const TYPE_LABELS={record:"Record",streak_record:"Streak Record",streak_extend:"Streak",first_ever:"First Ever"};
+const FTYPES=["all","record","streak_record","first_ever"];
+
+(async function(){
+  const t=document.getElementById("progressText");
+  try{
+    t.textContent="Loading alerts...";
+    const r=await fetch("alerts.json?v="+CACHE_BUST);
+    if(r.ok) AL=await r.json();
+    allDates=Object.keys(AL).sort().reverse();
+    flat=[];for(const d in AL)for(const a of AL[d])flat.push({...a,date:d});
+    t.textContent="Done!";
+    setTimeout(()=>{
+      document.getElementById("loadScreen").style.display="none";
+      document.getElementById("app").style.display="block";
+      const total=Object.values(AL).reduce((s,d)=>s+d.length,0);
+      document.getElementById("dbInfo").textContent="v"+APP_VERSION+" · "+allDates.length+" DATES · "+total+" ALERTS · 2025-26";
+      if(allDates.length)document.getElementById("dI").value=allDates[0];
+      bF("fD");bF("fA");bF("fS");loadRecordBook().then(()=>{startLivePolling()});
+    },200);
+  }catch(e){t.textContent="Error: "+e.message}
+})();
+
+function sv(v){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.remove("on"));
+  document.querySelectorAll(".tab").forEach(t=>{const m={live:"LI",daily:"🚨",alldates:"📋",search:"🔍"};if(t.textContent.includes(m[v]))t.classList.add("on")});
+  document.querySelectorAll(".sec").forEach(s=>s.classList.remove("on"));
+  document.getElementById("sec-"+v).classList.add("on");
+  if(v==="live")updateLive();if(v==="daily")rD();if(v==="alldates")rA();if(v==="search"){document.getElementById("sI").focus();rS()}
+}
+
+function bF(id){document.getElementById(id).innerHTML=FTYPES.map(t=>'<button class="fb'+(t===cF?" on":"")+'" onclick="sF(\''+t+'\')">'+(t==="all"?"All":(TYPE_ICONS[t]||"")+" "+(TYPE_LABELS[t]||t))+'</button>').join("")}
+function sF(t){cF=t;bF("fD");bF("fA");bF("fS");rD();rA();rS()}
+
+const dI=document.getElementById("dI");dI.addEventListener("change",rD);
+function st(){const d=new Date();dI.value=d.toISOString().slice(0,10);rD()}
+function sd(delta){if(!dI.value)return;const c=dI.value;const i=allDates.indexOf(c);
+  if(delta>0){const n=i>0?allDates[i-1]:null;if(n)dI.value=n}
+  else{const n=i>=0&&i<allDates.length-1?allDates[i+1]:null;if(n)dI.value=n}
+  rD()}
+
+function card(a,extraDate){
+  const ico=TYPE_ICONS[a.type]||"📌";
+  const tl=TYPE_LABELS[a.type]||a.type;
+  let dt=extraDate?' · <span style="color:#ffaa00">'+new Date(extraDate+"T12:00:00").toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"})+'</span>':"";
+  return'<div class="ac type-'+a.type+'"'+(extraDate?' style="cursor:pointer" onclick="dI.value=\''+extraDate+'\';sv(\'daily\')"':'')+'><div class="ico">'+ico+'</div><div class="bod"><div class="alert-text">'+a.alert+'</div><div class="det"><b>'+a.player+'</b> ('+a.team+' vs '+a.opp+') — <span class="line">'+a.line+'</span>'+dt+'</div><span class="tg tag-'+a.type+'">'+tl+'</span></div></div>';
+}
+
+function rD(){
+  const v=dI.value;const als=AL[v]||[];const f=cF==="all"?als:als.filter(a=>a.type===cF);
+  const el=document.getElementById("dC");
+  if(!v){el.innerHTML='<div class="empty"><div class="icon">🚨</div>Pick a date</div>';return}
+  const fd=new Date(v+"T12:00:00").toLocaleDateString("en-US",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+  if(!f.length){el.innerHTML='<div class="ban"><div class="bd">'+fd+'</div><div class="bc">'+(als.length?als.length+' alerts (none matching filter)':'No record alerts on this date')+'</div></div>';return}
+  let h='<div class="ban"><div class="bd">'+fd+'</div><div class="bc">'+f.length+(f.length!==als.length?' of '+als.length:'')+' alert'+(f.length!==1?'s':'')+'</div></div><div class="al">';
+  f.forEach(a=>{h+=card(a)});el.innerHTML=h+'</div>';
+}
+
+function rA(){
+  const el=document.getElementById("aC");
+  const fd=cF==="all"?allDates:allDates.filter(d=>AL[d].some(a=>a.type===cF));
+  const total=Object.values(AL).reduce((s,d)=>s+d.length,0);
+  let h='<div class="ban"><div class="bd">ALL DATES WITH RECORDS</div><div class="bc">'+allDates.length+' dates · '+total+' alerts</div></div>';
+  fd.forEach(d=>{
+    const als=AL[d];const fl=cF==="all"?als:als.filter(a=>a.type===cF);if(!fl.length)return;
+    const fn=new Date(d+"T12:00:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"});
+    const preview=fl[0]?fl[0].player+": "+fl[0].alert.slice(0,60)+"...":"";
+    h+='<div class="dr" onclick="dI.value=\''+d+'\';sv(\'daily\')"><div class="dd">'+fn+'</div><div class="dp">'+preview+'</div><div class="dc">'+fl.length+'</div></div>'});
+  el.innerHTML=h;
+}
+
+const sInp=document.getElementById("sI");let sT;
+sInp.addEventListener("input",()=>{clearTimeout(sT);sT=setTimeout(rS,200)});
+function rS(){
+  const q=sInp.value.toLowerCase().trim();const el=document.getElementById("sC");
+  if(!q){el.innerHTML='<div class="empty"><div class="icon">🔍</div>Search players, countries, colleges, teams...</div>';return}
+  let r=flat.filter(a=>{if(cF!=="all"&&a.type!==cF)return false;
+    return(a.player+" "+a.alert+" "+a.team+" "+a.opp+" "+a.line).toLowerCase().includes(q)});
+  r.sort((a,b)=>b.date.localeCompare(a.date));const t=r.length;const s=r.slice(0,50);
+  let h='<div class="ban"><div class="bd">"'+q.toUpperCase()+'"</div><div class="bc">'+t+' result'+(t!==1?'s':'')+(t>50?' · showing 50':'')+'</div></div>';
+  if(!s.length){el.innerHTML=h+'<div class="empty"><div class="icon">🔍</div>No results</div>';return}
+  h+='<div class="al">';s.forEach(a=>{h+=card(a,a.date)});
+  el.innerHTML=h+'</div>'+(t>50?'<div style="text-align:center;padding:16px;color:#555;font-size:10px">Showing 50 of '+t+'</div>':'');
+}
+
+// === LIVE DETECTION ===
+const LIVE_API = "https://hoopsmatic.com/api/nba-today";
+let RB = null;
+let liveTimer = null;
+let lastLiveData = null;
+
+async function loadRecordBook(){
+  try{
+    const r = await fetch("alerts_baseline.bin?v="+CACHE_BUST);
+    if(!r.ok) return null;
+    const rd = r.body.getReader(); const ch=[]; let sz=0;
+    while(true){const{done,value}=await rd.read();if(done)break;ch.push(value);sz+=value.length}
+    const cp=new Uint8Array(sz);let o=0;for(const c of ch){cp.set(c,o);o+=c.length}
+    RB = JSON.parse(pako.inflate(cp,{to:'string'}));
+    console.log("Record book loaded:",Object.keys(RB.records).length,"groups");
+    return RB;
+  }catch(e){console.error("Failed to load record book:",e);return null}
+}
+
+function buildCheck(key){
+  if(key==="5x5") return (p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5);
+  const parts=key.split("_");const conds=[];let i=0;
+  while(i<parts.length){
+    let stat=parts[i],val=null;
+    if(i+1<parts.length&&/^\d+$/.test(parts[i+1])){val=parseInt(parts[i+1]);i+=2}
+    else{for(const px of["pts","reb","ast","stl","blk","tpm"]){if(stat.startsWith(px)){val=parseInt(stat.slice(px.length));stat=px;break}}i++}
+    const m={pts:"p",reb:"r",ast:"a",stl:"s",blk:"b",tpm:"t"};
+    if(m[stat]&&val)conds.push([m[stat],val]);
+  }
+  return(p,r,a,s,b,t)=>{const v={p,r,a,s,b,t};return conds.every(c=>v[c[0]]>=c[1])};
+}
+
+const COMPOUND_LABELS = {"pts25_reb10": "25+ PTS & 10+ REB", "pts30_reb10": "30+ PTS & 10+ REB", "pts30_reb15": "30+ PTS & 15+ REB", "pts40_reb10": "40+ PTS & 10+ REB", "pts40_reb15": "40+ PTS & 15+ REB", "pts25_ast10": "25+ PTS & 10+ AST", "pts30_ast10": "30+ PTS & 10+ AST", "pts30_ast15": "30+ PTS & 15+ AST", "pts35_ast10": "35+ PTS & 10+ AST", "pts40_ast10": "40+ PTS & 10+ AST", "pts20_blk5": "20+ PTS & 5+ BLK", "pts25_blk5": "25+ PTS & 5+ BLK", "pts30_blk5": "30+ PTS & 5+ BLK", "pts20_stl5": "20+ PTS & 5+ STL", "pts25_stl5": "25+ PTS & 5+ STL", "pts30_stl5": "30+ PTS & 5+ STL", "pts30_tpm5": "30+ PTS & 5+ 3PM", "pts30_tpm8": "30+ PTS & 8+ 3PM", "pts40_tpm5": "40+ PTS & 5+ 3PM", "ast10_reb10": "10+ AST & 10+ REB", "ast15_reb10": "15+ AST & 10+ REB", "ast10_blk3": "10+ AST & 3+ BLK", "ast10_blk5": "10+ AST & 5+ BLK", "ast10_stl3": "10+ AST & 3+ STL", "ast10_stl5": "10+ AST & 5+ STL", "reb15_blk3": "15+ REB & 3+ BLK", "reb15_blk5": "15+ REB & 5+ BLK", "reb10_blk5": "10+ REB & 5+ BLK", "reb15_stl3": "15+ REB & 3+ STL", "stl3_blk3": "3+ STL & 3+ BLK", "stl5_blk3": "5+ STL & 3+ BLK", "pts20_reb10_ast10": "20-10-10", "pts25_reb10_ast10": "25-10-10", "pts30_reb10_ast10": "30-10-10", "pts30_reb10_ast5": "30+ PTS, 10+ REB & 5+ AST", "pts20_reb10_blk3": "20+ PTS, 10+ REB & 3+ BLK", "pts20_ast10_stl3": "20+ PTS, 10+ AST & 3+ STL", "pts20_reb5_ast5_stl3": "20+ PTS, 5+ REB, 5+ AST & 3+ STL", "pts20_reb5_ast5_blk3": "20+ PTS, 5+ REB, 5+ AST & 3+ BLK", "pts50": "50+ PTS", "pts60": "60+ PTS", "reb20": "20+ REB", "ast15": "15+ AST", "ast20": "20+ AST", "stl5": "5+ STL", "stl7": "7+ STL", "blk5": "5+ BLK", "blk7": "7+ BLK", "tpm8": "8+ 3PM", "tpm10": "10+ 3PM", "5x5": "5x5", "tpm5_ast10": "5+ 3PM & 10+ AST", "tpm5_reb10": "5+ 3PM & 10+ REB", "tpm5_stl3": "5+ 3PM & 3+ STL", "tpm5_blk3": "5+ 3PM & 3+ BLK", "tpm8_ast5": "8+ 3PM & 5+ AST", "tpm8_reb5": "8+ 3PM & 5+ REB", "tpm3_ast10": "3+ 3PM & 10+ AST", "tpm3_stl3": "3+ 3PM & 3+ STL", "tpm3_blk3": "3+ 3PM & 3+ BLK", "pts45_reb10": "45+ PTS & 10+ REB", "pts45_ast10": "45+ PTS & 10+ AST", "pts45_tpm5": "45+ PTS & 5+ 3PM", "pts35_reb10": "35+ PTS & 10+ REB", "pts35_reb15": "35+ PTS & 15+ REB", "pts35_blk3": "35+ PTS & 3+ BLK", "pts35_stl3": "35+ PTS & 3+ STL", "pts35_tpm5": "35+ PTS & 5+ 3PM", "pts15_blk3": "15+ PTS & 3+ BLK", "pts15_blk5": "15+ PTS & 5+ BLK", "pts15_stl3": "15+ PTS & 3+ STL", "pts15_stl5": "15+ PTS & 5+ STL", "pts15_tpm5": "15+ PTS & 5+ 3PM", "ast5_blk3": "5+ AST & 3+ BLK", "ast5_blk5": "5+ AST & 5+ BLK", "ast5_stl3": "5+ AST & 3+ STL", "ast5_stl5": "5+ AST & 5+ STL", "ast10_blk2": "10+ AST & 2+ BLK", "ast10_stl2": "10+ AST & 2+ STL", "reb10_blk3": "10+ REB & 3+ BLK", "reb10_stl3": "10+ REB & 3+ STL", "reb10_ast5": "10+ REB & 5+ AST", "reb10_tpm3": "10+ REB & 3+ 3PM", "stl2_blk2": "2+ STL & 2+ BLK", "stl2_blk3": "2+ STL & 3+ BLK", "stl3_blk2": "3+ STL & 2+ BLK", "stl4_blk2": "4+ STL & 2+ BLK", "stl2_blk4": "2+ STL & 4+ BLK", "pts25_ast5_stl3": "25+ PTS, 5+ AST & 3+ STL", "pts25_ast5_blk3": "25+ PTS, 5+ AST & 3+ BLK", "pts30_ast5_stl3": "30+ PTS, 5+ AST & 3+ STL", "pts30_ast5_blk3": "30+ PTS, 5+ AST & 3+ BLK", "pts20_reb5_stl3": "20+ PTS, 5+ REB & 3+ STL", "pts20_reb5_blk3": "20+ PTS, 5+ REB & 3+ BLK", "pts15_reb10_blk3": "15+ PTS, 10+ REB & 3+ BLK", "pts15_reb10_ast5": "15+ PTS, 10+ REB & 5+ AST", "pts15_ast10_stl3": "15+ PTS, 10+ AST & 3+ STL", "reb10_ast5_blk3": "10+ REB, 5+ AST & 3+ BLK", "reb10_ast5_stl3": "10+ REB, 5+ AST & 3+ STL", "ast5_stl3_blk3": "5+ AST, 3+ STL & 3+ BLK", "pts20_reb10_ast5_stl2": "20+ PTS, 10+ REB, 5+ AST & 2+ STL", "pts20_reb10_ast5_blk2": "20+ PTS, 10+ REB, 5+ AST & 2+ BLK", "pts20_reb5_ast5_stl2_blk2": "20+ PTS, 5+ REB, 5+ AST, 2+ STL & 2+ BLK", "pts15_reb10_ast5_blk3": "15+ PTS, 10+ REB, 5+ AST & 3+ BLK", "pts15_reb5_ast5_stl3_blk3": "15+ PTS, 5+ REB, 5+ AST, 3+ STL & 3+ BLK"};
+const COMPOUND_CHECKS_JS = {};
+for(const k in COMPOUND_LABELS) COMPOUND_CHECKS_JS[k] = buildCheck(k);
+
+const GAME_STATS_MAP = {game_pts:"points",game_reb:"rebounds",game_ast:"assists",game_stl:"steals",game_blk:"blocks",game_tpm:"3-pointers"};
+const GAME_MINS_MAP = {game_pts:20,game_reb:10,game_ast:8,game_stl:4,game_blk:3,game_tpm:4};
+const AGE_FEATS_JS = {
+  pts40:["40+ PTS",(p,r,a,s,b,t)=>p>=40],pts50:["50+ PTS",(p,r,a,s,b,t)=>p>=50],
+  td:["triple-double",(p,r,a,s,b,t)=>[p,r,a,s,b].filter(v=>v>=10).length>=3],
+  dd:["double-double",(p,r,a,s,b,t)=>[p,r,a,s,b].filter(v=>v>=10).length>=2],
+  reb20:["20+ REB",(p,r,a,s,b,t)=>r>=20],ast15:["15+ AST",(p,r,a,s,b,t)=>a>=15],
+  blk5:["5+ BLK",(p,r,a,s,b,t)=>b>=5],stl5:["5+ STL",(p,r,a,s,b,t)=>s>=5],
+  "5x5":["5x5",(p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5)],
+};
+
+function filterLabel(fk){
+  if(fk==="all")return"";const[c,v]=fk.split(":");
+  return{country:`by a player from ${v}`,birth_country:`by a player born in ${v}`,college:`by a ${v} alum`,state:`by a player from ${v}`,pos:`by a ${v}`,team:`as a member of the ${v}`}[c]||"";
+}
+function getFkeys(name,team){
+  if(!RB||!RB.bio)return["all"];
+  const keys=["all"];const b=RB.bio[name]||{};const vg=new Set(RB.valid_groups||[]);
+  for(const[c,v]of[["country",b.country],["birth_country",b.birth_country],["college",b.college],["state",b.state],["pos",b.pos]]){
+    if(v){const k=c+":"+v;if(vg.has(k))keys.push(k)}
+  }
+  if(team){const k="team:"+team;if(vg.has(k))keys.push(k)}
+  return keys;
+}
+function ageAtDate(bdayStr,gameDate){
+  if(!bdayStr)return null;
+  const m=bdayStr.match(/^(\d+)\/(\d+)\/(\d+)$/);
+  if(!m)return null;
+  const bd=new Date(parseInt(m[3]),parseInt(m[1])-1,parseInt(m[2]));
+  return Math.round((gameDate-bd)/(365.25*86400000)*100)/100;
+}
+function ageStr(a){const y=Math.floor(a);const d=Math.floor((a-y)*365.25);return y+" years, "+d+" days"}
+
+function detectLiveAlerts(games){
+  if(!RB)return[];
+  const alerts=[];const today=new Date();
+  for(const game of games){
+    if(!game.players||game.players.length===0)continue;
+    const statusLabel=game.status===3?"FINAL":game.status===2?"LIVE":"";
+    for(const pl of game.players){
+      const{name:rawName,team,opp,pts,reb,ast,stl,blk,tpm}=pl;
+      // Map NBA API name to database name
+      const name=(RB.name_map&&RB.name_map[rawName])||rawName;
+      const fkeys=getFkeys(name,team);
+      let line=pts+" PTS, "+reb+" REB, "+ast+" AST";
+      if(stl>=3||blk>=3||tpm>=5)line+=", "+stl+" STL, "+blk+" BLK, "+tpm+" 3PM";
+      const sv={game_pts:pts,game_reb:reb,game_ast:ast,game_stl:stl,game_blk:blk,game_tpm:tpm};
+      for(const fk of fkeys){
+        if(fk==="all")continue;
+        for(const[stat,val]of Object.entries(sv)){
+          if(val<(GAME_MINS_MAP[stat]||0))continue;
+          const rec=(RB.records[fk]||{})[stat];
+          if(rec&&val>rec.value){
+            const fl=filterLabel(fk);const sl=GAME_STATS_MAP[stat];
+            const txt=rec.player===name?
+              `New personal record: Most ${sl} in a game ${fl} (${val}), surpassing own record of ${rec.value}`:
+              `\u{1F3C6} NEW RECORD: Most ${sl} in a game ${fl} (${val}), breaking ${rec.player}'s record of ${rec.value} (${rec.date})`;
+            alerts.push({type:"record",player:name,team,opp,line,alert:txt,status:statusLabel});
+          }
+        }
+      }
+      for(const[ck,cf]of Object.entries(COMPOUND_CHECKS_JS)){
+        if(!cf(pts,reb,ast,stl,blk,tpm))continue;
+        for(const fk of fkeys){
+          if(fk==="all")continue;
+          const ch=(RB.compound_history[fk]||{})[ck];
+          if(!ch||ch.count===0){
+            alerts.push({type:"first_ever",player:name,team,opp,line,
+              alert:`\u2B50 FIRST EVER: ${COMPOUND_LABELS[ck]} game ${filterLabel(fk)}`,status:statusLabel});
+          }
+        }
+      }
+      const bday=RB.bio[name]?.bday;
+      const pAge=ageAtDate(bday,today);
+      if(pAge&&pAge>15&&pAge<50){
+        for(const[afk,[al,ac]]of Object.entries(AGE_FEATS_JS)){
+          if(!ac(pts,reb,ast,stl,blk,tpm))continue;
+          for(const fk of fkeys){
+            const ar=(RB.age_records[fk]||{})[afk];
+            if(!ar)continue;
+            const fl=fk==="all"?"":filterLabel(fk);
+            if(pAge<ar.youngest.age&&ar.youngest.player&&ar.youngest.player!==name)
+              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F476} YOUNGEST: ${al} ${fl} at ${ageStr(pAge)}, younger than ${ar.youngest.player} (${ageStr(ar.youngest.age)})`,status:statusLabel});
+            if(pAge>ar.oldest.age&&ar.oldest.player){
+              if(ar.oldest.player!==name)
+                alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)}, older than ${ar.oldest.player} (${ageStr(ar.oldest.age)})`,status:statusLabel});
+              else
+                alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F9D3} OLDEST: ${al} ${fl} at ${ageStr(pAge)} (extending own record)`,status:statusLabel});
+            }
+          }
+        }
+      }
+      // Career highs
+      if(RB.career_highs){
+        const ch=RB.career_highs[name];
+        if(ch){
+          const CH_LABELS={pts:"points",reb:"rebounds",ast:"assists",stl:"steals",blk:"blocks",tpm:"3-pointers"};
+          const CH_MINS={pts:30,reb:15,ast:12,stl:5,blk:5,tpm:6};
+          for(const[stat,val]of[["pts",pts],["reb",reb],["ast",ast],["stl",stl],["blk",blk],["tpm",tpm]]){
+            if(val>ch[stat]&&val>=CH_MINS[stat])
+              alerts.push({type:"record",player:name,team,opp,line,alert:`\u{1F3AF} CAREER HIGH: ${val} ${CH_LABELS[stat]} (previous: ${ch[stat]})`,status:statusLabel});
+          }
+        }
+      }
+      // First-since detection for rare feats
+      if(RB.compound_history){
+        const FS_FEATS={pts50:["50+ PTS",(p,r,a,s,b,t)=>p>=50],pts60:["60+ PTS",(p,r,a,s,b,t)=>p>=60],
+          reb20:["20+ REB",(p,r,a,s,b,t)=>r>=20],ast20:["20+ AST",(p,r,a,s,b,t)=>a>=20],
+          stl7:["7+ STL",(p,r,a,s,b,t)=>s>=7],blk7:["7+ BLK",(p,r,a,s,b,t)=>b>=7],
+          tpm10:["10+ 3PM",(p,r,a,s,b,t)=>t>=10],
+          "5x5":["5x5",(p,r,a,s,b,t)=>[p,r,a,s,b].every(v=>v>=5)],
+          pts40_reb15:["40+ PTS & 15+ REB",(p,r,a,s,b,t)=>p>=40&&r>=15],
+          pts40_ast10:["40+ PTS & 10+ AST",(p,r,a,s,b,t)=>p>=40&&a>=10],
+          pts30_reb10_ast10:["30-10-10",(p,r,a,s,b,t)=>p>=30&&r>=10&&a>=10]};
+        for(const[fsk,[fsl,fsc]]of Object.entries(FS_FEATS)){
+          if(!fsc(pts,reb,ast,stl,blk,tpm))continue;
+          for(const fk of fkeys){
+            const ch2=(RB.compound_history[fk]||{})[fsk];
+            if(!ch2||!ch2.last)continue;
+            const fl=fk==="all"?"":filterLabel(fk);
+            const lastP=ch2.last.player||"";const lastD=ch2.last.date||"";
+            if(lastP&&lastP!==name){
+              alerts.push({type:"first_ever",player:name,team,opp,line,
+                alert:`\u{1F4C5} FIRST SINCE: ${fsl} game ${fl} \u2014 first since ${lastP} (${lastD})`,status:statusLabel});
+            }
+          }
+        }
+      }
+      // Debut detection - any name not in historical database is a debut
+      if(RB.players_ever){
+        if(!window._peSet){window._peSet=new Set(RB.players_ever)}
+        const normName=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+        if(!window._peSet.has(name)&&!window._peSet.has(normName)){
+          const b=RB.bio[name]||RB.bio[normName]||{};const bi=[];
+          if(b.country&&b.country!=="United States")bi.push("from "+b.country);
+          if(b.birth_country)bi.push("born in "+b.birth_country);
+          if(b.college)bi.push(b.college);
+          if(b.state)bi.push(b.state);
+          const bs=bi.join(" \u00B7 ");
+          alerts.push({type:"first_ever",player:name,team,opp,line,
+            alert:`\u{1F31F} NBA DEBUT: ${name} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
+        }
+      }
+    }
+  }
+  const seen=new Set();
+  return alerts.filter(a=>{const k=a.player+a.alert.slice(0,80);if(seen.has(k))return false;seen.add(k);return true});
+}
+
+async function fetchLiveData(){
+  try{const r=await fetch(LIVE_API);if(!r.ok)throw new Error("API "+r.status);return await r.json()}
+  catch(e){console.error("Live fetch error:",e);return null}
+}
+
+async function updateLive(){
+  const statusEl=document.getElementById("liveStatus");
+  const alertsEl=document.getElementById("liveAlerts");
+  const gamesEl=document.getElementById("liveGames");
+  statusEl.innerHTML='<span class="live-dot"></span> Fetching live data...';
+  const data=await fetchLiveData();
+  if(!data){statusEl.textContent="Unable to reach live API";return}
+  lastLiveData=data;
+  const now=new Date().toLocaleTimeString("en-US",{hour:"numeric",minute:"2-digit"});
+  const liveGames=data.games.filter(g=>g.status===2).length;
+  const finalGames=data.games.filter(g=>g.status===3).length;
+  const scheduled=data.games.filter(g=>g.status===1).length;
+  statusEl.innerHTML='<span class="live-dot"></span> Updated <span class="time">'+now+'</span> \u00B7 '+
+    (liveGames?liveGames+' LIVE \u00B7 ':'')+finalGames+' Final \u00B7 '+scheduled+' Scheduled \u00B7 Auto-refresh';
+  const liveAlerts=detectLiveAlerts(data.games);
+  if(liveAlerts.length){
+    let h='<div class="ban"><div class="bd"><span class="live-dot"></span> '+liveAlerts.length+' RECORD ALERT'+(liveAlerts.length!==1?'S':'')+'</div><div class="bc">Detected from today\'s games</div></div><div class="al">';
+    liveAlerts.forEach(a=>{h+=card(a)});
+    alertsEl.innerHTML=h+'</div>';
+  }else{
+    alertsEl.innerHTML='<div class="ban"><div class="bd">NO RECORD ALERTS YET</div><div class="bc">Monitoring today\'s games for records</div></div>';
+  }
+  let gh='';
+  for(const g of data.games){
+    const statusClass=g.status===2?' style="color:#ff4444;font-weight:700"':g.status===3?' style="color:#00cc88"':'';
+    gh+='<div class="live-game"><div class="gm-header"><div class="gm-teams">'+g.away+' @ '+g.home+'</div>';
+    if(g.status>=2)gh+='<div class="gm-score">'+g.awayScore+' - '+g.homeScore+'</div>';
+    gh+='</div><div class="gm-status"'+statusClass+'>'+(g.statusText||["","Scheduled","In Progress","Final"][g.status]||"")+'</div></div>';
+  }
+  gamesEl.innerHTML=gh||'<div class="no-games">No games scheduled today</div>';
+}
+
+function startLivePolling(){
+  updateLive();
+  if(liveTimer)clearInterval(liveTimer);
+  const hasLive=lastLiveData&&lastLiveData.games&&lastLiveData.games.some(g=>g.status===2);
+  liveTimer=setInterval(updateLive,hasLive?30000:120000);
+}
+
+</script>
+</body>
+</html>
