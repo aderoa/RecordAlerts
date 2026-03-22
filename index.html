@@ -259,12 +259,12 @@ const AGE_FEATS_JS = {
 
 function filterLabel(fk){
   if(fk==="all")return"";const[c,v]=fk.split(":");
-  return{country:`by a ${v} player`,college:`by a ${v} alum`,state:`by a player from ${v}`,pos:`by a ${v}`,team:`as a member of the ${v}`}[c]||"";
+  return{country:`by a player from ${v}`,birth_country:`by a player born in ${v}`,college:`by a ${v} alum`,state:`by a player from ${v}`,pos:`by a ${v}`,team:`as a member of the ${v}`}[c]||"";
 }
 function getFkeys(name,team){
   if(!RB||!RB.bio)return["all"];
   const keys=["all"];const b=RB.bio[name]||{};const vg=new Set(RB.valid_groups||[]);
-  for(const[c,v]of[["country",b.country],["college",b.college],["state",b.state],["pos",b.pos]]){
+  for(const[c,v]of[["country",b.country],["birth_country",b.birth_country],["college",b.college],["state",b.state],["pos",b.pos]]){
     if(v){const k=c+":"+v;if(vg.has(k))keys.push(k)}
   }
   if(team){const k="team:"+team;if(vg.has(k))keys.push(k)}
@@ -378,14 +378,16 @@ function detectLiveAlerts(games){
       if(RB.players_ever){
         if(!window._peSet){window._peSet=new Set(RB.players_ever)}
         const normName=name.normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-        if(!window._peSet.has(name)&&!window._peSet.has(normName)){
+        if(!window._peSet.has(name)&&!window._peSet.has(normName)&&!window._peSet.has(rawName)){
           const b=RB.bio[name]||RB.bio[normName]||{};const bi=[];
-          if(b.country&&b.country!=="United States")bi.push(b.country);
+          if(b.country&&b.country!=="United States")bi.push("from "+b.country);
+          if(b.birth_country)bi.push("born in "+b.birth_country);
           if(b.college)bi.push(b.college);
           if(b.state)bi.push(b.state);
           const bs=bi.join(" \u00B7 ");
-          alerts.push({type:"first_ever",player:name,team,opp,line,
-            alert:`\u{1F31F} NBA DEBUT: ${name} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
+          const displayName=rawName||name;
+          alerts.push({type:"first_ever",player:displayName,team,opp,line,
+            alert:`\u{1F31F} NBA DEBUT: ${displayName} makes NBA debut for the ${team}`+(bs?` [${bs}]`:""),status:statusLabel});
         }
       }
     }
